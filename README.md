@@ -1,8 +1,3 @@
----
-css: README.css
-title: Quizzer
----
-
 A server for anonymous audience response.
 
 # Public endpoints

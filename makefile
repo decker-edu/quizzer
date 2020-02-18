@@ -8,7 +8,7 @@ build: readme
 	stack install
 
 readme:
-	pandoc --standalone --self-contained README.md -o README.html
+	pandoc --standalone --self-contained -M css:README.css -M title:Quizzer README.md -o README.html
 
 install-service: build
 	sudo cp quizzer.service /etc/systemd/system/
