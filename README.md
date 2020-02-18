@@ -102,14 +102,14 @@ presentation of the user interface shown to the participant.
 
 ``` {.json}
 {
-    "command": "Begin",
+    "tag": "Begin",
     "choices": ["A", "B", "C"]
 }
 ```
 
 ``` {.json}
 {
-    "command": "End",
+    "tag": "End",
     "choices": ["A", "B", "C"],
 }
 ```
