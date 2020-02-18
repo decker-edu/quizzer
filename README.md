@@ -1,17 +1,17 @@
 A server for anonymous audience response.
 
-# Public endpoints
+## Public endpoints
 
 Endpoints are documented relative to the base URL. For example, using
 the base URL `https://tramberend.beuth-hochschule.de/quizzer/`, the
 effective URL for the `/quiz` endpoint would be
 `https://tramberend.beuth-hochschule.de/quizzer/quiz`
 
-## `GET /`
+### `GET /`
 
 Returns this document.
 
-## `GET /quiz`
+### `GET /quiz`
 
 This publicly accessible endpoint creates a new quiz session and a
 persistent websocket connection. The lifetime of the quiz session is
@@ -31,7 +31,7 @@ The master controls the quiz session by sending commands to the server,
 and receives status information whenever the status for that session
 changes.
 
-### Example status responses
+#### Example status responses
 
 ``` {.json}
 {
@@ -49,7 +49,7 @@ changes.
 -   `Finished`: The quiz has been terminated. `choices` contains the
     final result.
 
-### Commands
+#### Commands
 
 The master controls the quiz via commands that are sent to the server.
 The following commands are recognized:
@@ -72,7 +72,7 @@ The following commands are recognized:
 { "tag": "Reset" }
 ```
 
-## `GET /quiz/:key`
+### `GET /quiz/:key`
 
 This publicly available endpoint is contacted by quiz participants.
 `key` identifies the quiz session and the complete URL is typically
@@ -83,7 +83,7 @@ connection for the duration of the quiz session.
 
 Quiz keys are short 4-digit hex values, for example `0f11`.
 
-### Commands
+#### Commands
 
 The client receives commands from the quiz server that control the
 presentation of the user interface shown to the participant.
@@ -114,7 +114,7 @@ presentation of the user interface shown to the participant.
 }
 ```
 
-### Votes
+#### Participation
 
 The client may submit a quiz answer by sending a `choice` message like
 so:
