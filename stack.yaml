@@ -1,0 +1,5 @@
+resolver: lts-14.5
+packages:
+  - .
+extra-deps:
+  - logging-3.0.5@sha256:88096d3124fce9a19af3720f751e1a354d866ed5030d2e5197238d2277cdb2f2,2374

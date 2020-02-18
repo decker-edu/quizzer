@@ -1,0 +1,81 @@
+name: quizzer
+version: 0.1.0.0
+github: "monofon/quizzer"
+license: BSD3
+author: "Henrik Tramberend"
+maintainer: "monofon@tramberend.de"
+copyright: "2020 Henrik Tramberend"
+
+extra-source-files:
+  - README.md
+
+description: Decker quiz server.
+
+dependencies:
+  - base-noprelude >= 4.7 && < 5
+  - relude
+  - aeson
+  - aeson-pretty
+  - bytestring
+  - cmdargs
+  - containers
+  - cryptonite
+  - data-default-class
+  - directory
+  - filepath
+  - logging
+  - network-uri
+  - random
+  - snap-core
+  - snap-server
+  - split
+  - stm
+  - text
+  - time
+  - unordered-containers
+  - utf8-string
+  - websockets
+  - websockets-snap
+  - pureMD5
+  - lens
+
+ghc-options:
+  - -Wunused-top-binds
+  - -Wunused-local-binds
+  - -Wincomplete-patterns
+  - -Wunused-matches
+  - -fwarn-unused-imports
+
+library:
+  source-dirs: src
+
+executables:
+  quizzer:
+    main: Quizzer
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - quizzer
+
+default-extensions:
+  - DeriveDataTypeable
+  - DeriveGeneric
+  - DuplicateRecordFields
+  - EmptyCase
+  - FlexibleContexts
+  - FlexibleInstances
+  - GeneralizedNewtypeDeriving
+  - InstanceSigs
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - NamedFieldPuns
+  - NoMonomorphismRestriction
+  - OverloadedStrings
+  - RecordWildCards
+  - ScopedTypeVariables
+  - TemplateHaskell
+  - TupleSections
