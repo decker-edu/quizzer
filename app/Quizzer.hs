@@ -118,8 +118,8 @@ main = do
 routes :: Central -> Snap ()
 routes central =
   route
-    [ ("/quizzer/:quiz-key", method GET $ handleQuiz central)
-    , ("/quizzer", method GET $ handleSession central)
+    [ ("/quiz/:quiz-key", method GET $ handleQuiz central)
+    , ("/quiz", method GET $ handleSession central)
     , ("/", ifTop $ serveFileAs "text/html" "README.html")
     ]
 

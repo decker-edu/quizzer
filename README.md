@@ -1,17 +1,22 @@
 ---
+css: README.css
 title: Quizzer
-css: "README.css"
 ---
 
 A server for anonymous audience response.
 
 # Public endpoints
 
+Endpoints are documented relative to the base URL. For example, using
+the base URL `https://tramberend.beuth-hochschule.de/quizzer/`, the
+effective URL for the `/quiz` endpoint would be
+`https://tramberend.beuth-hochschule.de/quizzer/quiz`
+
 ## GET /
 
 Returns this document.
 
-## GET `/quizzer`
+## GET `/quiz`
 
 This publicly accessible endpoint creates a new quiz session and a
 persistent websocket connection. The lifetime of the quiz session is
@@ -64,7 +69,7 @@ The following commands are recognized:
 { "tag": "Reset" }
 ```
 
-## GET /quizzer/:id
+## GET /quiz/:id
 
 This publicly available endpoint is contacted by quiz participants. `id`
 identifies the quiz session and the complete URL is typically obtained
@@ -117,4 +122,4 @@ message like so:
 
 ## Source code and issues
 
-- GitHub: [monofon/qiuzzer](https://github.com/monofon/quizzer)
+-   GitHub: [monofon/qiuzzer](https://github.com/monofon/quizzer)
