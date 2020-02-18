@@ -66,14 +66,16 @@ instance ToJSON QuizState where
 makeLenses ''QuizState
 
 -- | A client connection with its id.
-type Client = (Int, Connection)
+type Client = (Text, Connection)
+
+type ClientMap = Map Text Connection
 
 -- | A quiz session.
 data Session = Session
   { _master :: Connection
   , _quizState :: QuizState
-  , _clients :: Map Int Connection
-  , _votes :: Map Int Connection
+  , _clients :: ClientMap
+  , _votes :: ClientMap
   }
 
 makeLenses ''Session
@@ -160,9 +162,13 @@ handleMaster central key pending = do
   connection <- acceptRequest pending
   putTextLn "Master connection accepted."
   modifyCentral' central (createSession key connection)
+  putStrLn $ "Session created: " ++ toString key
   sendTextData connection (encodePretty (QKey key))
   sendStatus central key
-  flip finally (modifyCentral' central (removeSession key)) $
+  flip
+    finally
+    (modifyCentral' central (removeSession key) >>
+     putStrLn ("Session destroyed: " ++ toString key)) $
     forever (masterLoop connection central key)
 
 data MasterCommand
@@ -199,6 +205,7 @@ masterLoop connection central key = do
             central
             key
             (Active $ fromList $ zip choices (repeat 0))
+          modifyCentral' central (set (sessions . ix key . votes) (fromList []))
           sendAllClientCommand central key (Begin choices)
         Stop -> do
           quizState <-
@@ -234,30 +241,38 @@ sendStatus central key = do
 handleQuiz :: Central -> Snap ()
 handleQuiz central = do
   key <- decodeUtf8 . fromJust <$> getParam "quiz-key"
-  runWebSocketsSnap $ handleClient central key
+  cid <- decodeUtf8 . rqClientAddr <$> getRequest
+  runWebSocketsSnap $ handleClient central key cid
 
-handleClient :: Central -> QuizKey -> PendingConnection -> IO ()
-handleClient central key pending = do
+handleClient :: Central -> QuizKey -> Text -> PendingConnection -> IO ()
+handleClient central key cid pending = do
   exists <- accessCentral' central (doesSessionExist key)
   if not exists
     then rejectRequest pending ("No such session: " <> encodeUtf8 key)
-    else acceptRequest pending >>= clientMain central key
+    else acceptRequest pending >>= clientMain central key cid
 
-clientMain :: Central -> QuizKey -> Connection -> IO ()
-clientMain central key connection = do
+clientMain :: Central -> QuizKey -> Text -> Connection -> IO ()
+clientMain central key cid connection = do
   putTextLn "Client connection accepted."
-  cid <- randomIO -- Use a random number as client id.
   let client = (cid, connection)
   modifyCentral' central (addClient key client)
+  putStrLn ("Client added: " ++ toString key ++ ": " ++ show cid)
   quizState <- accessCentral' central (preview (sessions . ix key . quizState))
   case quizState of
     Nothing -> return ()
     Just quizState -> do
       case quizState of
-        Active choices -> sendClientCommand (Begin $ keys choices) connection
+        Active choices -> do
+          didVote <- accessCentral' central (didClientVote key cid)
+          if didVote
+            then sendClientCommand (End $ keys choices) connection
+            else sendClientCommand (Begin $ keys choices) connection
         Finished choices -> sendClientCommand (End $ keys choices) connection
         Ready -> sendClientCommand Idle connection
-      flip finally (modifyCentral' central (removeClient key cid)) $
+      flip
+        finally
+        (modifyCentral' central (removeClient key cid) >>
+         putStrLn ("Client removed: " ++ toString key ++ ": " ++ show cid)) $
         forever (clientLoop client central key)
 
 data ClientVote = ClientVote
@@ -276,6 +291,11 @@ clientLoop (cid, connection) central key = do
       unless didVote $ do
         modifyCentral' central (registerAnswer key (cid, connection) choice)
         sendStatus central key
+      state <- accessCentral' central (preview (sessions . ix key . quizState))
+      case state of
+        Just (Active choices) ->
+          sendClientCommand (End $ keys choices) connection
+        _ -> return ()
 
 finishWithAuthError =
   finishWith $ setResponseStatus 401 "Not authorized" emptyResponse
@@ -307,7 +327,7 @@ addClient key (cid, conn) =
   set (sessions . at key . _Just . clients . at cid) (Just conn)
 
 -- | Remove the client if the specified session exists.
-removeClient :: QuizKey -> Int -> CentralData -> CentralData
+removeClient :: QuizKey -> Text -> CentralData -> CentralData
 removeClient key cid =
   set (sessions . at key . _Just . clients . at cid) Nothing
 
@@ -315,7 +335,7 @@ removeClient key cid =
 doesSessionExist :: QuizKey -> CentralData -> Bool
 doesSessionExist key = has (sessions . ix key)
 
-didClientVote :: QuizKey -> Int -> CentralData -> Bool
+didClientVote :: QuizKey -> Text -> CentralData -> Bool
 didClientVote key cid = has (sessions . at key . _Just . votes . ix cid)
 
 -- | Creates a new session with the specified key and master connection
