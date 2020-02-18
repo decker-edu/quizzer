@@ -2,9 +2,9 @@ name: quizzer
 version: 0.1.0.0
 github: "monofon/quizzer"
 license: BSD3
-author: "Henrik Tramberend"
-maintainer: "monofon@tramberend.de"
-copyright: "2020 Henrik Tramberend"
+author: "monofon"
+maintainer: "monofon"
+copyright: "2020 monofon"
 
 extra-source-files:
   - README.md

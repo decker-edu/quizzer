@@ -11,7 +11,7 @@ A server for anonymous audience response.
 
 Returns this document.
 
-## GET `/session`
+## GET `/quizzer`
 
 This publicly accessible endpoint creates a new quiz session and a
 persistent websocket connection. The lifetime of the quiz session is
@@ -64,7 +64,7 @@ The following commands are recognized:
 { "tag": "Reset" }
 ```
 
-## GET /quiz/:id
+## GET /quizzer/:id
 
 This publicly available endpoint is contacted by quiz participants. `id`
 identifies the quiz session and the complete URL is typically obtained
@@ -114,3 +114,7 @@ message like so:
 ``` {.json}
 { "choice": "A" }
 ```
+
+## Source code and issues
+
+- GitHub: [monofon/qiuzzer](https://github.com/monofon/quizzer)
