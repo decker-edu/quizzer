@@ -7,11 +7,11 @@ the base URL `https://tramberend.beuth-hochschule.de/quizzer/`, the
 effective URL for the `/quiz` endpoint would be
 `https://tramberend.beuth-hochschule.de/quizzer/quiz`
 
-## GET /
+## `GET /`
 
 Returns this document.
 
-## GET `/quiz`
+## `GET /quiz`
 
 This publicly accessible endpoint creates a new quiz session and a
 persistent websocket connection. The lifetime of the quiz session is
@@ -72,7 +72,7 @@ The following commands are recognized:
 { "tag": "Reset" }
 ```
 
-## GET /quiz/:key
+## `GET /quiz/:key`
 
 This publicly available endpoint is contacted by quiz participants.
 `key` identifies the quiz session and the complete URL is typically
