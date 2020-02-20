@@ -1,5 +1,7 @@
 module Quizzer where
 
+import Atomically
+
 import Control.Exception
 import Control.Lens hiding ((.=))
 import Data.Aeson

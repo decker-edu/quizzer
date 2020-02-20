@@ -13,7 +13,6 @@ description: Decker quiz server.
 
 dependencies:
   - base-noprelude >= 4.7 && < 5
-  - relude
   - aeson
   - aeson-pretty
   - bytestring
@@ -23,9 +22,13 @@ dependencies:
   - data-default-class
   - directory
   - filepath
+  - lens
   - logging
+  - mtl
   - network-uri
+  - pureMD5
   - random
+  - relude
   - snap-core
   - snap-server
   - split
@@ -36,8 +39,6 @@ dependencies:
   - utf8-string
   - websockets
   - websockets-snap
-  - pureMD5
-  - lens
 
 ghc-options:
   - -Wunused-top-binds
