@@ -1,6 +1,7 @@
 module Atomically
   ( runAtomically
   , commit
+  , Atomic(..)
   ) where
 
 -- Collect actions over the Identity monad
@@ -22,7 +23,7 @@ runAtomically tvar action =
     writeTVar tvar state'
     return commitAction
 
--- Sequences the action with the stoired action and store the result.
+-- Sequences the action with the stored action and stores the result.
 commit' :: IO () -> Commit ()
 commit' action = do
   stored <- get

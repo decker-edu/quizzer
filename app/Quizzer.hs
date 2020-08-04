@@ -123,7 +123,7 @@ routes :: Central -> Snap ()
 routes central =
   route
     [ ("/quiz/:quiz-key", method GET $ handleQuiz central)
-    , ("/quiz", method GET $ handleSession central)
+    , ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central)
     , ("/", ifTop $ serveFileAs "text/html" "README.html")
     ]
 
@@ -142,15 +142,9 @@ writeData bs = do
   disableCors
   writeBS bs
 
-makeQuizKey :: Snap QuizKey
+makeQuizKey :: IO QuizKey
 makeQuizKey =
-  toText . take 4 . show . md5 . toLazy . show <$> liftIO (randomIO :: IO Int)
-
--- | Handle creation of a new session.
-handleSession :: Central -> Snap ()
-handleSession central = do
-  key <- makeQuizKey
-  runWebSocketsSnap $ handleMaster central key
+  toText . take 4 . show . md5 . toLazy . show <$> (randomIO :: IO Int)
 
 data QKey = QKey
   { key :: Text
@@ -159,8 +153,9 @@ data QKey = QKey
 instance ToJSON QKey
 
 -- | Handles the master for a new quiz session.
-handleMaster :: Central -> QuizKey -> PendingConnection -> IO ()
-handleMaster central key pending = do
+handleMaster :: Central -> PendingConnection -> IO ()
+handleMaster central pending = do
+  key <- makeQuizKey
   connection <- acceptRequest pending
   putTextLn "Master connection accepted."
   modifyCentral' central (createSession key connection)
@@ -171,7 +166,7 @@ handleMaster central key pending = do
     finally
     (modifyCentral' central (removeSession key) >>
      putStrLn ("Session destroyed: " ++ toString key)) $
-    forever (masterLoop connection central key)
+    forever (masterLoop' connection central key)
 
 data MasterCommand
   = Start { choices :: [Text] }
@@ -194,6 +189,35 @@ data ErrorMsg = ErrorMsg
   } deriving (Generic, Show)
 
 instance ToJSON ErrorMsg
+
+type AC = Atomic CentralData
+
+masterLoop' :: Connection -> Central -> QuizKey -> IO ()
+masterLoop' connection central key = do
+  cmd <- eitherDecode <$> receiveData connection
+  case cmd of
+    Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
+    Right cmd ->
+      runAtomically central $ do
+        case cmd of
+          Start choices -> initSession key choices
+          Stop -> do
+            qs <- preuse (sessions . ix key . quizState)
+            case qs of
+              Just (Active choices) -> do
+                assign (sessions . ix key . quizState) (Finished choices)
+                sendAllClients key (End $ keys choices)
+              _ -> return ()
+          Reset -> do
+            assign (sessions . ix key . quizState) Ready
+            sendAllClients key Idle
+        sendMasterStatus key
+
+initSession :: QuizKey -> [Text] -> AC ()
+initSession key choices =
+  assign
+    (sessions . ix key . quizState)
+    (Active $ fromList $ zip choices (repeat 0))
 
 masterLoop :: Connection -> Central -> QuizKey -> IO ()
 masterLoop connection central key = do
@@ -222,9 +246,20 @@ masterLoop connection central key = do
           sendAllClientCommand central key Idle
       sendStatus central key
 
+sendMasterStatus :: QuizKey -> AC ()
+sendMasterStatus key = do
+  state <- fromJust <$> preuse (sessions . ix key . quizState)
+  master <- fromJust <$> preuse (sessions . ix key . master)
+  commit $ sendTextData master (encodePretty state)
+
 setSessionState :: Central -> QuizKey -> QuizState -> IO ()
 setSessionState central key state =
   modifyCentral' central (set (sessions . ix key . quizState) state)
+
+sendAllClients :: QuizKey -> ClientCommand -> AC ()
+sendAllClients key cmd = do
+  clients <- use (sessions . ix key . clients)
+  commit $ mapM_ (sendClientCommand cmd) clients
 
 sendAllClientCommand :: Central -> QuizKey -> ClientCommand -> IO ()
 sendAllClientCommand central key cmd = do
