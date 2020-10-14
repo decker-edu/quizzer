@@ -14,6 +14,7 @@ install-service: build
 	sudo cp quizzer.service /etc/systemd/system/
 	sudo chmod 644 /etc/systemd/system/quizzer.service
 	sudo systemctl daemon-reload
+	sudo systemctl enable quizzer
 	
 daemon: build kill
 	daemonize -c $(directory) -p $(pidfile) -l $(lockfile) $(quizzer)
