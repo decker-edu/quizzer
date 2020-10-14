@@ -1,7 +1,6 @@
 module Quizzer where
 
 import Atomically
-
 import Control.Exception
 import Control.Lens hiding ((.=))
 import Data.Aeson
@@ -21,8 +20,8 @@ import System.FilePath ((</>))
 import System.Random
 
 data Opts = Opts
-  { _debug :: Bool
-  , _urlBase :: String
+  { _debug :: Bool,
+    _urlBase :: String
   }
 
 makeLenses ''Opts
@@ -35,8 +34,8 @@ options =
       ['d']
       ["debug"]
       (NoArg (set debug True))
-      "Write log to ./log instead of /var/log/quizzer"
-  , GetOpt.Option
+      "Write log to ./log instead of /var/log/quizzer",
+    GetOpt.Option
       ['u']
       ["url"]
       (ReqArg (set urlBase) "URL")
@@ -53,8 +52,8 @@ quizzerOpts argv =
 -- | The state of a quiz session.
 data QuizState
   = Ready
-  | Active { _choices :: Map Text Int }
-  | Finished { _choices :: Map Text Int }
+  | Active {_choices :: Map Text Int}
+  | Finished {_choices :: Map Text Int}
   deriving (Generic, Show)
 
 instance ToJSON QuizState where
@@ -74,10 +73,10 @@ type ClientMap = Map Text Connection
 
 -- | A quiz session.
 data Session = Session
-  { _master :: Connection
-  , _quizState :: QuizState
-  , _clients :: ClientMap
-  , _votes :: ClientMap
+  { _master :: Connection,
+    _quizState :: QuizState,
+    _clients :: ClientMap,
+    _votes :: ClientMap
   }
 
 makeLenses ''Session
@@ -85,13 +84,13 @@ makeLenses ''Session
 -- | Quiz sessions are indexed by a key that is just a random string.
 type QuizKey = Text
 
--- | The map of all active quiz sessions.
+-- |  The map of all active quiz sessions.
 type SessionMap = Map QuizKey Session
 
--- | The central state of the server.
+-- |  The central state of the server.
 data CentralData = CentralData
-  { _baseUrl :: String
-  , _sessions :: SessionMap
+  { _baseUrl :: String,
+    _sessions :: SessionMap
   }
 
 makeLenses ''CentralData
@@ -107,12 +106,13 @@ main = do
       let logBaseDir =
             if view debug opts
               then "./log"
-              else "/var/log/grader"
+              else "/var/log/quizzer"
       createDirectoryIfMissing True logBaseDir
       let config =
             setPort 3003 $
-            setAccessLog (ConfigFileLog (logBaseDir </> "access.log")) $
-            setErrorLog (ConfigFileLog (logBaseDir </> "error.log")) mempty :: Config Snap ()
+              setAccessLog (ConfigFileLog (logBaseDir </> "access.log")) $
+                setErrorLog (ConfigFileLog (logBaseDir </> "error.log")) mempty ::
+              Config Snap ()
       central <- newTVarIO $ CentralData "" (fromList [])
       simpleHttpServe config (routes central)
     Left err -> do
@@ -122,9 +122,11 @@ main = do
 routes :: Central -> Snap ()
 routes central =
   route
-    [ ("/quiz/:quiz-key", method GET $ handleQuiz central)
-    , ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central)
-    , ("/", ifTop $ serveFileAs "text/html" "README.html")
+    [ ("/quiz/:quiz-key", method GET $ handleQuiz central),
+      ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central),
+      ("/", ifTop $ serveFileAs "text/html" "README.html"),
+      ("/presenter.html", serveFileAs "text/html" "static/presenter.html"),
+      ("/quizzer.html", serveFileAs "text/html" "static/quizzer.html")
     ]
 
 disableCors :: Snap ()
@@ -148,7 +150,8 @@ makeQuizKey =
 
 data QKey = QKey
   { key :: Text
-  } deriving (Generic, Show)
+  }
+  deriving (Generic, Show)
 
 instance ToJSON QKey
 
@@ -164,12 +167,13 @@ handleMaster central pending = do
   sendStatus central key
   flip
     finally
-    (modifyCentral' central (removeSession key) >>
-     putStrLn ("Session destroyed: " ++ toString key)) $
-    forever (masterLoop' connection central key)
+    ( modifyCentral' central (removeSession key)
+        >> putStrLn ("Session destroyed: " ++ toString key)
+    )
+    $ forever (masterLoop' connection central key)
 
 data MasterCommand
-  = Start { choices :: [Text] }
+  = Start {choices :: [Text]}
   | Stop
   | Reset
   deriving (Generic, Show)
@@ -177,8 +181,8 @@ data MasterCommand
 instance FromJSON MasterCommand
 
 data ClientCommand
-  = Begin { choices :: [Text] }
-  | End { choices :: [Text] }
+  = Begin {choices :: [Text]}
+  | End {choices :: [Text]}
   | Idle
   deriving (Generic, Show)
 
@@ -186,7 +190,8 @@ instance ToJSON ClientCommand
 
 data ErrorMsg = ErrorMsg
   { msg :: Text
-  } deriving (Generic, Show)
+  }
+  deriving (Generic, Show)
 
 instance ToJSON ErrorMsg
 
@@ -222,11 +227,13 @@ initSession key choices =
 masterLoop :: Connection -> Central -> QuizKey -> IO ()
 masterLoop connection central key = do
   cmd <- eitherDecode <$> receiveData connection
+  putTextLn $ "Command: " <> key <> ": " <> show cmd
   case cmd of
     Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
     Right cmd -> do
       case cmd of
         Start choices -> do
+          putTextLn $ "Start: " <> show key <> ": " <> show choices
           setSessionState
             central
             key
@@ -234,6 +241,7 @@ masterLoop connection central key = do
           modifyCentral' central (set (sessions . ix key . votes) (fromList []))
           sendAllClientCommand central key (Begin choices)
         Stop -> do
+          putTextLn $ "Stop: " <> show key
           quizState <-
             accessCentral' central (preview (sessions . ix key . quizState))
           case quizState of
@@ -242,6 +250,7 @@ masterLoop connection central key = do
               sendAllClientCommand central key (End $ keys choices)
             _ -> return ()
         Reset -> do
+          putTextLn $ "Reset: " <> show key
           setSessionState central key Ready
           sendAllClientCommand central key Idle
       sendStatus central key
@@ -308,13 +317,15 @@ clientMain central key cid connection = do
         Ready -> sendClientCommand Idle connection
       flip
         finally
-        (modifyCentral' central (removeClient key cid) >>
-         putStrLn ("Client removed: " ++ toString key ++ ": " ++ show cid)) $
-        forever (clientLoop client central key)
+        ( modifyCentral' central (removeClient key cid)
+            >> putStrLn ("Client removed: " ++ toString key ++ ": " ++ show cid)
+        )
+        $ forever (clientLoop client central key)
 
 data ClientVote = ClientVote
   { choice :: Text
-  } deriving (Generic, Show)
+  }
+  deriving (Generic, Show)
 
 instance FromJSON ClientVote
 
@@ -391,6 +402,6 @@ registerAnswer key (cid, connection) answer central =
     Just (Active choices) ->
       set
         (sessions . at key . _Just . quizState)
-        (Active (alter (fmap (+ 1)) answer choices)) $
-      set (sessions . at key . _Just . votes . at cid) (Just connection) central
+        (Active (alter (fmap (+ 1)) answer choices))
+        $ set (sessions . at key . _Just . votes . at cid) (Just connection) central
     _ -> central

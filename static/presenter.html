@@ -1,0 +1,94 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Quizzer</title>
+  <style>
+    table.finished td {
+      color: darkred;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>What is the right answer?</h1>
+  <ol>
+    <li id="A">A</li>
+    <li id="B">B</li>
+    <li id="C">C</li>
+    <li id="D">D</li>
+  </ol>
+  <button id="start" onclick="start()">Start Quiz</button>
+  <button id="stop" onclick="stop()">Stop Quiz</button>
+  <p id="quizid"></p>
+  <table id="result">
+    <tr>
+      <th>A</th>
+      <th>B</th>
+      <th>C</th>
+      <th>D</th>
+    </tr>
+    <tr>
+      <td id="RA"></td>
+      <td id="RB"></td>
+      <td id="RC"></td>
+      <td id="RD"></td>
+    </tr>
+    <script>
+      "use strict";
+      var socket = null;
+      var quiz = null;
+
+      let base = location.origin;
+      let quizid = document.querySelector("p#quizid");
+      let table = document.querySelector("table");
+
+      function start() {
+        if (socket != null)
+          return;
+        socket = new WebSocket(`ws://${location.host}/quiz`);
+        socket.addEventListener("message", e => {
+          let message = JSON.parse(e.data);
+          if (quiz == null) {
+            quiz = message.key;
+            quizid.textContent = quiz;
+          } else {
+            switch (message.state) {
+              case "Ready":
+                table.classList.remove("finished");
+                socket.send(JSON.stringify({"tag": "Start", "choices": ["A", "B", "C", "D"]}));
+                break;
+              case "Active":
+                for (let name in message.choices) {
+                  let td = document.querySelector(`td#R${name}`);
+                  td.textContent = message.choices[name];
+                }
+                break;
+              case "Finished":
+                table.classList.add("finished");
+                for (let name in message.choices) {
+                  let td = document.querySelector(`td#R${name}`);
+                  td.textContent = message.choices[name];
+                }
+
+                quiz = null;
+                socket = null;
+                break;
+            }
+          }
+        });
+      }
+
+      function stop() {
+        if (socket == null)
+          return;
+        socket.send(JSON.stringify({"tag": "Stop", "choices": ["A", "B", "C", "D"]}));
+      }
+    </script>
+</body>
+
+
+</html>
