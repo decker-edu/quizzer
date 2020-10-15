@@ -205,7 +205,9 @@ masterLoop' connection central key = do
     Right cmd ->
       runAtomically central $ do
         case cmd of
-          Start choices -> initSession key choices
+          Start choices -> do
+            initSession key choices
+            sendAllClients key (Begin $ choices)
           Stop -> do
             qs <- preuse (sessions . ix key . quizState)
             case qs of

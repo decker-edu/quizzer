@@ -21,11 +21,11 @@
   </style>
 </head>
 
-<body onload="start()">
+<body onload="connect()">
   <h1 id="quizid"> </h1>
   <div id="buttons"></div>
   <script>
-    function start() {
+    function connect() {
       let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
       let quiz = location.hash.slice(1);
       let header = document.querySelector("h1#quizid");
@@ -35,6 +35,7 @@
       let socket = new WebSocket(`${base}/quiz/${quiz}`);
       socket.addEventListener("message", e => {
         let message = JSON.parse(e.data);
+        console.log(message);
         switch (message.tag) {
           case "Idle":
             while (buttons.firstChild) {

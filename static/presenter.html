@@ -23,7 +23,7 @@
   </style>
 </head>
 
-<body>
+<body onload="connect()">
   <h1>What is the right answer?</h1>
   <ol>
     <li id="A">A</li>
@@ -31,8 +31,9 @@
     <li id="C">C</li>
     <li id="D">D</li>
   </ol>
-  <button id="start" onclick="start()">Start Quiz</button>
-  <button id="stop" onclick="stop()">Stop Quiz</button>
+  <button id="start" onclick="start()" disabled>Start Quiz</button>
+  <button id="stop" onclick="stop()" disabled>Stop Quiz</button>
+  <button id="reset" onclick="reset()" disabled>Reset Quiz</button>
   <p><a id="link" href="" target="_blank"><span id="quizid"></span></a></p>
   <table id="result">
     <tr>
@@ -55,8 +56,11 @@
       let quizid = document.querySelector("span#quizid");
       let table = document.querySelector("table");
       let link = document.querySelector("a#link");
+      let startBtn = document.querySelector("button#start");
+      let stopBtn = document.querySelector("button#stop");
+      let resetBtn = document.querySelector("button#reset");
 
-      function start() {
+      function connect() {
         if (socket != null)
           return;
         socket = new WebSocket(`${base}/quiz`);
@@ -69,34 +73,55 @@
           } else {
             switch (message.state) {
               case "Ready":
+                startBtn.removeAttribute("disabled");
+                stopBtn.setAttribute("disabled", true);
+                resetBtn.setAttribute("disabled", true);
                 table.classList.remove("finished");
-                socket.send(JSON.stringify({"tag": "Start", "choices": ["A", "B", "C", "D"]}));
+                counts = table.querySelectorAll("td");
+                for (let count of counts) {
+                  count.textContent = "";
+                }
                 break;
+
               case "Active":
+                startBtn.setAttribute("disabled", true);
+                stopBtn.removeAttribute("disabled");
+                resetBtn.setAttribute("disabled", true);
+                table.classList.remove("finished");
                 for (let name in message.choices) {
                   let td = document.querySelector(`td#R${name}`);
                   td.textContent = message.choices[name];
                 }
                 break;
+
               case "Finished":
+                startBtn.setAttribute("disabled", true);
+                stopBtn.setAttribute("disabled", true);
+                resetBtn.removeAttribute("disabled");
                 table.classList.add("finished");
                 for (let name in message.choices) {
                   let td = document.querySelector(`td#R${name}`);
                   td.textContent = message.choices[name];
                 }
-
-                quiz = null;
-                socket = null;
                 break;
             }
           }
         });
       }
 
+      function start() {
+        if (socket == null) return;
+        socket.send(JSON.stringify({"tag": "Start", "choices": ["A", "B", "C", "D"]}));
+      }
+
       function stop() {
-        if (socket == null)
-          return;
+        if (socket == null) return;
         socket.send(JSON.stringify({"tag": "Stop", "choices": ["A", "B", "C", "D"]}));
+      }
+
+      function reset() {
+        if (socket == null) return;
+        socket.send(JSON.stringify({"tag": "Reset"}));
       }
     </script>
 </body>
