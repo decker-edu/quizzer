@@ -10,6 +10,10 @@ install-service: build
 	sudo chmod 644 /etc/systemd/system/quizzer.service
 	sudo systemctl daemon-reload
 	sudo systemctl enable quizzer
+	sudo mkdir -p /var/log/quizzer
+	sudo chown henrik:henrik /var/log/quizzer
+	sudo systemctl restart quizzer
+	sudo systemctl status quizzer
 	
 run-local:
 	(sleep 1; open http://localhost:3003/presenter.html)&

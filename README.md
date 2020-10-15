@@ -1,5 +1,9 @@
 A server for anonymous audience response.
 
+## Quick demo
+
+- A simple stand-alone [presenter client](presenter.html){target="_blank"}
+
 ## Public endpoints
 
 Endpoints are documented relative to the base URL. For example, using
