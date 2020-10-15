@@ -9,6 +9,7 @@ install-service: build
 	sudo cp quizzer.service /etc/systemd/system/
 	sudo chmod 644 /etc/systemd/system/quizzer.service
 	sudo systemctl daemon-reload
+	sudo systemctl enable quizzer
 	
 run-local:
 	(sleep 1; open http://localhost:3003/presenter.html)&

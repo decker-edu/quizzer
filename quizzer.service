@@ -1,11 +1,14 @@
 [Unit]
-Description=Quizzer deamon.
+Description=Quizzer
 
 [Service]
-Type=forking
+Type=simple
+WorkingDirectory=/home/henrik/workspace/quizzer
+ExecStart=/home/henrik/.local/bin/quizzer 
+User=henrik
+Group=henrik
 Restart=always
 RestartSec=3
-ExecStart=/usr/sbin/daemonize -c /home/henrik/workspace/quizzer -p /home/henrik/workspace/grader/grader.pid /home/henrik/.local/bin/quizzer 
 
 [Install]
 WantedBy=multi-user.target
