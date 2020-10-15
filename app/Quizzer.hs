@@ -170,7 +170,7 @@ handleMaster central pending = do
     ( modifyCentral' central (removeSession key)
         >> putStrLn ("Session destroyed: " ++ toString key)
     )
-    $ forever (masterLoop' connection central key)
+    $ forever (masterLoop connection central key)
 
 data MasterCommand
   = Start {choices :: [Text]}
@@ -197,8 +197,8 @@ instance ToJSON ErrorMsg
 
 type AC = Atomic CentralData
 
-masterLoop' :: Connection -> Central -> QuizKey -> IO ()
-masterLoop' connection central key = do
+masterLoop :: Connection -> Central -> QuizKey -> IO ()
+masterLoop connection central key = do
   cmd <- eitherDecode <$> receiveData connection
   case cmd of
     Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
@@ -217,45 +217,16 @@ masterLoop' connection central key = do
               _ -> return ()
           Reset -> do
             assign (sessions . ix key . quizState) Ready
+            assign (sessions . ix key . votes) (fromList [])
             sendAllClients key Idle
         sendMasterStatus key
 
 initSession :: QuizKey -> [Text] -> AC ()
-initSession key choices =
+initSession key choices = do
+  assign (sessions . ix key . votes) (fromList [])
   assign
     (sessions . ix key . quizState)
     (Active $ fromList $ zip choices (repeat 0))
-
-masterLoop :: Connection -> Central -> QuizKey -> IO ()
-masterLoop connection central key = do
-  cmd <- eitherDecode <$> receiveData connection
-  putTextLn $ "Command: " <> key <> ": " <> show cmd
-  case cmd of
-    Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
-    Right cmd -> do
-      case cmd of
-        Start choices -> do
-          putTextLn $ "Start: " <> show key <> ": " <> show choices
-          setSessionState
-            central
-            key
-            (Active $ fromList $ zip choices (repeat 0))
-          modifyCentral' central (set (sessions . ix key . votes) (fromList []))
-          sendAllClientCommand central key (Begin choices)
-        Stop -> do
-          putTextLn $ "Stop: " <> show key
-          quizState <-
-            accessCentral' central (preview (sessions . ix key . quizState))
-          case quizState of
-            Just (Active choices) -> do
-              setSessionState central key (Finished choices)
-              sendAllClientCommand central key (End $ keys choices)
-            _ -> return ()
-        Reset -> do
-          putTextLn $ "Reset: " <> show key
-          setSessionState central key Ready
-          sendAllClientCommand central key Idle
-      sendStatus central key
 
 sendMasterStatus :: QuizKey -> AC ()
 sendMasterStatus key = do
@@ -370,6 +341,11 @@ modifyCentral central func = liftIO $ modifyCentral' central func
 
 modifyCentral' :: Central -> (CentralData -> CentralData) -> IO ()
 modifyCentral' central func = atomically $ modifyTVar' central func
+
+-- | Clear the votes
+clearVotes :: QuizKey -> CentralData -> CentralData
+clearVotes key =
+  set (sessions . at key . _Just . votes) (fromList [])
 
 -- | Add the client if the specified session exists.
 addClient :: QuizKey -> Client -> CentralData -> CentralData
