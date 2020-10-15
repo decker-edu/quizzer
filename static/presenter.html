@@ -51,7 +51,7 @@
       var socket = null;
       var quiz = null;
 
-      let base = location.origin;
+      let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
       let quizid = document.querySelector("span#quizid");
       let table = document.querySelector("table");
       let link = document.querySelector("a#link");
@@ -59,7 +59,7 @@
       function start() {
         if (socket != null)
           return;
-        socket = new WebSocket(`ws://${location.host}/quiz`);
+        socket = new WebSocket(`${base}/quiz`);
         socket.addEventListener("message", e => {
           let message = JSON.parse(e.data);
           if (quiz == null) {

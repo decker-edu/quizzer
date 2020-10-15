@@ -26,12 +26,13 @@
   <div id="buttons"></div>
   <script>
     function start() {
+      let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
       let quiz = location.hash.slice(1);
       let header = document.querySelector("h1#quizid");
       let buttons = document.querySelector("div#buttons");
       header.textContent = quiz;
 
-      let socket = new WebSocket(`ws://${location.host}/quiz/${quiz}`);
+      let socket = new WebSocket(`${base}/quiz/${quiz}`);
       socket.addEventListener("message", e => {
         let message = JSON.parse(e.data);
         switch (message.tag) {
