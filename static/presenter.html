@@ -6,6 +6,16 @@
   <meta charset="utf-8">
   <title>Quizzer</title>
   <style>
+    body {
+      font-family: sans-serif;
+    }
+
+    #quizid {
+      font-size: 200%;
+      font-weight: bold;
+      font-family: monospace;
+    }
+
     table.finished td {
       color: darkred;
       font-weight: bold;
@@ -23,7 +33,7 @@
   </ol>
   <button id="start" onclick="start()">Start Quiz</button>
   <button id="stop" onclick="stop()">Stop Quiz</button>
-  <p id="quizid"></p>
+  <p><a id="link" href="" target="_blank"><span id="quizid"></span></a></p>
   <table id="result">
     <tr>
       <th>A</th>
@@ -38,13 +48,13 @@
       <td id="RD"></td>
     </tr>
     <script>
-      "use strict";
       var socket = null;
       var quiz = null;
 
       let base = location.origin;
-      let quizid = document.querySelector("p#quizid");
+      let quizid = document.querySelector("span#quizid");
       let table = document.querySelector("table");
+      let link = document.querySelector("a#link");
 
       function start() {
         if (socket != null)
@@ -55,6 +65,7 @@
           if (quiz == null) {
             quiz = message.key;
             quizid.textContent = quiz;
+            link.setAttribute("href", `quizzer.html#${quiz}`)
           } else {
             switch (message.state) {
               case "Ready":

@@ -5,9 +5,67 @@
 <head>
   <meta charset="utf-8">
   <title>Quizzer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+
+    button.choice {
+      color: darkred;
+      font-weight: bold;
+    }
+
+    h1#quizid {
+      font-family: monospace;
+    }
+  </style>
 </head>
 
-<body>
+<body onload="start()">
+  <h1 id="quizid"> </h1>
+  <div id="buttons"></div>
+  <script>
+    function start() {
+      let quiz = location.hash.slice(1);
+      let header = document.querySelector("h1#quizid");
+      let buttons = document.querySelector("div#buttons");
+      header.textContent = quiz;
+
+      let socket = new WebSocket(`ws://${location.host}/quiz/${quiz}`);
+      socket.addEventListener("message", e => {
+        let message = JSON.parse(e.data);
+        switch (message.tag) {
+          case "Idle":
+            while (buttons.firstChild) {
+              buttons.removeChild(buttons.firstChild);
+            }
+            break;
+          case "Begin":
+            for (let name of message.choices) {
+              let button = document.createElement("button");
+              button.setAttribute("id", `B${name}`);
+              button.textContent = name;
+              button.addEventListener("click", _ => {
+                for (let button of buttons.children)
+                  button.classList.remove("choice");
+                button.classList.add("choice");
+                socket.send(JSON.stringify({"choice": name}));
+              });
+              buttons.appendChild(button);
+            }
+            break;
+          case "End":
+            buttons.classList.add("ended");
+            for (let name of message.choices) {
+              let button = document.querySelector(`button#B${name}`);
+              if (button)
+                button.setAttribute("disabled", true);
+            }
+            break;
+        }
+      });
+    }
+  </script>
 </body>
 
 </html>
