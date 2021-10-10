@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Quizzer where
 
 import Atomically
@@ -9,6 +11,7 @@ import Data.Digest.Pure.MD5
 import Data.Maybe (fromJust)
 import Network.WebSockets
 import Network.WebSockets.Snap
+import Relude
 import Relude.Extra.Map
 import Snap.Core
 import Snap.Http.Server
@@ -173,7 +176,7 @@ handleMaster central pending = do
     $ forever (masterLoop connection central key)
 
 data MasterCommand
-  = Start {choices :: [Text]}
+  = Start [Text]
   | Stop
   | Reset
   deriving (Generic, Show)
@@ -181,8 +184,8 @@ data MasterCommand
 instance FromJSON MasterCommand
 
 data ClientCommand
-  = Begin {choices :: [Text]}
-  | End {choices :: [Text]}
+  = Begin [Text]
+  | End [Text]
   | Idle
   deriving (Generic, Show)
 

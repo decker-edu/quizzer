@@ -1,5 +1,6 @@
 module Json where
 
+import Relude
 import Data.Aeson
 import Data.Aeson.Encode.Pretty (encodePretty)
 

@@ -4,6 +4,8 @@ module Atomically
   , Atomic(..)
   ) where
 
+import Relude
+
 -- Collect actions over the Identity monad
 type Commit = State (IO ())
 

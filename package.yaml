@@ -12,7 +12,7 @@ extra-source-files:
 description: Decker quiz server.
 
 dependencies:
-  - base-noprelude >= 4.7 && < 5
+  - base >= 4.7 && < 5
   - aeson
   - aeson-pretty
   - bytestring
@@ -80,3 +80,5 @@ default-extensions:
   - ScopedTypeVariables
   - TemplateHaskell
   - TupleSections
+  - NoImplicitPrelude
+
