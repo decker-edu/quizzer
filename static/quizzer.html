@@ -51,18 +51,15 @@
                 for (let button of buttons.children)
                   button.classList.remove("choice");
                 button.classList.add("choice");
-                socket.send(JSON.stringify({"choice": name}));
+                socket.send(JSON.stringify({ "choice": [name] }));
               });
               buttons.appendChild(button);
             }
             break;
           case "End":
-            buttons.classList.add("ended");
-            for (let name of message.choices) {
-              let button = document.querySelector(`button#B${name}`);
-              if (button)
-                button.setAttribute("disabled", true);
-            }
+            for (let button of buttons.children)
+              button.setAttribute("disabled", 1);
+            buttons.add("ended");
             break;
         }
       });

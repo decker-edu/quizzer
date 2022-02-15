@@ -41,12 +41,14 @@
       <th>B</th>
       <th>C</th>
       <th>D</th>
+      <th></th>
     </tr>
     <tr>
       <td id="RA"></td>
       <td id="RB"></td>
       <td id="RC"></td>
       <td id="RD"></td>
+      <td id="N"></td>
     </tr>
     <script>
       var socket = null;
@@ -64,14 +66,20 @@
         if (socket != null)
           return;
         socket = new WebSocket(`${base}/quiz`);
+
         socket.addEventListener("message", e => {
           let message = JSON.parse(e.data);
-          if (quiz == null) {
+          console.log("Received: ", message);
+          if (message.error) {
+            console.log("Server error: ", message.error);
+          } else if (quiz == null) {
             quiz = message.key;
             quizid.textContent = quiz;
             link.setAttribute("href", `quizzer.html#${quiz}`)
           } else {
-            switch (message.state) {
+            let td = document.querySelector(`td#N`);
+            td.textContent = message.participants;
+            switch (message.quiz.state) {
               case "Ready":
                 startBtn.removeAttribute("disabled");
                 stopBtn.setAttribute("disabled", true);
@@ -88,9 +96,9 @@
                 stopBtn.removeAttribute("disabled");
                 resetBtn.setAttribute("disabled", true);
                 table.classList.remove("finished");
-                for (let name in message.choices) {
+                for (let name in message.quiz.choices) {
                   let td = document.querySelector(`td#R${name}`);
-                  td.textContent = message.choices[name];
+                  td.textContent = message.quiz.choices[name];
                 }
                 break;
 
@@ -99,29 +107,34 @@
                 stopBtn.setAttribute("disabled", true);
                 resetBtn.removeAttribute("disabled");
                 table.classList.add("finished");
-                for (let name in message.choices) {
+                for (let name in message.quiz.choices) {
                   let td = document.querySelector(`td#R${name}`);
-                  td.textContent = message.choices[name];
+                  td.textContent = message.quiz.choices[name];
                 }
                 break;
+
+              default: console.log("Received unknown message: ", message);
             }
           }
         });
       }
 
       function start() {
+        console.log("Start");
         if (socket == null) return;
-        socket.send(JSON.stringify({"tag": "Start", "choices": ["A", "B", "C", "D"]}));
+        socket.send(JSON.stringify({ "tag": "Start", "choices": ["A", "B", "C", "D"], votes: 1 }));
       }
 
       function stop() {
+        console.log("Stop");
         if (socket == null) return;
-        socket.send(JSON.stringify({"tag": "Stop", "choices": ["A", "B", "C", "D"]}));
+        socket.send(JSON.stringify({ "tag": "Stop" }));
       }
 
       function reset() {
+        console.log("Reset");
         if (socket == null) return;
-        socket.send(JSON.stringify({"tag": "Reset"}));
+        socket.send(JSON.stringify({ "tag": "Reset" }));
       }
     </script>
 </body>
