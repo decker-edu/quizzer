@@ -15,21 +15,24 @@
       font-weight: bold;
     }
 
-    h1#quizid {
+    h1#pollid {
       font-family: monospace;
     }
+  </style>
+  <style id="server-style">
   </style>
 </head>
 
 <body onload="connect()">
-  <h1 id="quizid"> </h1>
+  <h1 id="pollid"> </h1>
   <div id="buttons"></div>
   <script>
     function connect() {
       let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
       let quiz = location.hash.slice(1);
-      let header = document.querySelector("h1#quizid");
+      let header = document.querySelector("h1#pollid");
       let buttons = document.querySelector("div#buttons");
+      let style = document.querySelector("style#server-style");
       header.textContent = quiz;
 
       let socket = new WebSocket(`${base}/quiz/${quiz}`);
@@ -43,15 +46,25 @@
             }
             break;
           case "Begin":
-            for (let name of message.choices) {
+            let votes = new Set();
+            for (let i = 0; i < message.choices.length; i++) {
+              let text = message.choices[i];
               let button = document.createElement("button");
-              button.setAttribute("id", `B${name}`);
-              button.textContent = name;
+              button.setAttribute("id", String.fromCharCode(65 + i));
+              button.textContent = text;
               button.addEventListener("click", _ => {
-                for (let button of buttons.children)
-                  button.classList.remove("choice");
-                button.classList.add("choice");
-                socket.send(JSON.stringify({ "choice": [name] }));
+                if (!button.classList.contains("checked")) {
+                  votes.add(text);
+                  button.classList.add("checked");
+                  if (votes.size == message.votes)
+                    disableOthers(buttons, button, true);
+                } else {
+                  if (votes.size == message.votes)
+                    disableOthers(buttons, button, false);
+                  button.classList.remove("checked");
+                  votes.delete(text);
+                }
+                socket.send(JSON.stringify({ "vote": [...votes] }));
               });
               buttons.appendChild(button);
             }
@@ -59,10 +72,24 @@
           case "End":
             for (let button of buttons.children)
               button.setAttribute("disabled", 1);
-            buttons.add("ended");
+            break;
+          case "Css":
+            style.textContent = message.css;
             break;
         }
       });
+    }
+
+    function disableOthers(buttons, button, disable) {
+      for (let b of buttons.children)
+        if (b.id != button.id)
+          if (disable) {
+            b.setAttribute("disabled", true);
+            console.log("disable", b.id);
+          } else {
+            b.removeAttribute("disabled");
+            console.log("enable", b.id);
+          }
     }
   </script>
 </body>

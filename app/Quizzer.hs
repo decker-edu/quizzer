@@ -43,6 +43,7 @@ data MasterCommand
   = Start {_choices :: [Text], _votes :: Int}
   | Stop
   | Reset
+  | ClientCss {_clientCss :: Text}
   deriving (Generic, Show)
 
 $(deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''MasterCommand)
@@ -52,6 +53,7 @@ data ClientCommand
   = Begin {_choices :: [Text], _votes :: Int}
   | End
   | Idle
+  | Css {_css :: Text}
   deriving (Generic, Show)
 
 $(deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''ClientCommand)
@@ -62,6 +64,16 @@ data ErrorMsg = ErrorMsg
   deriving (Generic, Show)
 
 instance ToJSON ErrorMsg
+
+type ClientId = Text
+
+-- | The state of a quiz session.
+data QuizState' = QuizState'
+  { _status :: Status',
+    _votesCast :: Map Text [ClientId],
+    _votes :: Int
+  }
+  deriving (Generic, Show)
 
 -- | The state of a quiz session.
 data QuizState
@@ -96,15 +108,28 @@ data SessionMsg = SessionMsg
 
 instance ToJSON SessionMsg
 
+data Status' = Ready' | Active' | Done' deriving (Generic, Show)
+
+instance ToJSON Status'
+
+data SessionMsg' = SessionMsg'
+  { _state :: Status',
+    _votes :: [Text],
+    _participants :: Int
+  }
+  deriving (Generic, Show)
+
+instance ToJSON SessionMsg'
+
 -- makeLenses ''SessionMsg
 
 -- | Sent to the server by the client.
 data ClientVote = ClientVote
-  { choice :: [Text]
+  { _vote :: [Text]
   }
   deriving (Generic, Show)
 
-instance FromJSON ClientVote
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''ClientVote)
 
 -- | A client connection with its id.
 type Client = (Text, Connection)
@@ -119,7 +144,8 @@ data Session = Session
   { _master :: Connection,
     _quizState :: QuizState,
     _clients :: ClientMap,
-    _votes :: ClientMap
+    _votes :: ClientMap,
+    _clientCss :: Text
   }
   deriving (Show)
 
@@ -195,7 +221,7 @@ routes central =
       ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central),
       ("/", ifTop $ serveFileAs "text/html" "README.html"),
       ("/presenter.html", serveFileAs "text/html" "static/presenter.html"),
-      ("/quizzer.html", serveFileAs "text/html" "static/quizzer.html")
+      ("/client", serveFileAs "text/html" "static/quizzer.html")
     ]
 
 mkQuizKey :: IO QuizKey
@@ -254,6 +280,9 @@ masterLoop connection central key = do
             assign (sessions . ix key . quizState) Ready
             assign (sessions . ix key . votes) (fromList [])
             sendAllClients key Idle
+          ClientCss css -> do
+            assign (sessions . ix key . clientCss) css
+
         sendMasterStatus key
 
 initSession :: QuizKey -> [Text] -> Int -> AC ()
@@ -306,17 +335,22 @@ clientMain central key cid connection = do
   let client = (cid, connection)
   modifyCentral' central (addClient key client)
   quizState <- accessCentral' central (preview (sessions . ix key . quizState))
+  css <- accessCentral' central (preview (sessions . ix key . clientCss))
+  case css of
+    Just css -> sendClientCommand (Css css) connection
+    Nothing -> return ()
   sendStatus central key
   case quizState of
     Nothing -> return ()
     Just quizState -> do
       case quizState of
         Active choices nvotes -> do
-          didVote <- accessCentral' central (didClientVote key cid)
-          if didVote
-            then sendClientCommand (End) connection
-            else sendClientCommand (Begin (keys choices) nvotes) connection
-        Finished _ _ -> sendClientCommand (End) connection
+          -- didVote <- accessCentral' central (didClientVote key cid)
+          -- if didVote
+          --   then sendClientCommand End connection
+          --   else sendClientCommand (Begin (keys choices) nvotes) connection
+          sendClientCommand (Begin (keys choices) nvotes) connection
+        Finished _ _ -> sendClientCommand End connection
         Ready -> sendClientCommand Idle connection
       flip
         finally
@@ -329,17 +363,18 @@ clientLoop :: Client -> Central -> QuizKey -> IO ()
 clientLoop (cid, connection) central key = do
   answer <- eitherDecode <$> receiveData connection
   case answer of
-    Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
+    Left err -> do
+      putStrLn $ "ERROR: " <> err
+      sendTextData connection (encode (ErrorMsg $ toText err))
     Right (ClientVote choices) -> do
-      didVote <- accessCentral' central (didClientVote key cid)
-      unless didVote $ do
-        modifyCentral' central (registerAnswer key (cid, connection) choices)
-        sendStatus central key
-      state <- accessCentral' central (preview (sessions . ix key . quizState))
-      case state of
-        Just (Active _ _) ->
-          sendClientCommand End connection
-        _ -> return ()
+      -- didVote <- accessCentral' central (didClientVote key cid)
+      -- unless didVote $ do
+      modifyCentral' central (registerAnswer key (cid, connection) choices)
+      sendStatus central key
+      -- state <- accessCentral' central (preview (sessions . ix key . quizState))
+      -- case state of
+      --   Just (Active _ _) -> sendClientCommand End connection
+      --   _ -> return ()
 
 accessCentral' :: Central -> (CentralData -> a) -> IO a
 accessCentral' central func = func <$> readTVarIO central
@@ -353,6 +388,7 @@ addClient key (cid, conn) =
   set (sessions . at key . _Just . clients . at cid) (Just conn)
 
 -- | Remove the client if the specified session exists.
+-- TODO Remove the votes this client placed
 removeClient :: QuizKey -> Text -> CentralData -> CentralData
 removeClient key cid =
   set (sessions . at key . _Just . clients . at cid) Nothing
@@ -367,7 +403,7 @@ didClientVote key cid = has (sessions . at key . _Just . votes . ix cid)
 -- | Creates a new session with the specified key and master connection
 createSession :: QuizKey -> Connection -> CentralData -> CentralData
 createSession key conn central =
-  let session = Session conn (Ready) (fromList []) (fromList [])
+  let session = Session conn (Ready) (fromList []) (fromList []) ""
    in set (sessions . at key) (Just session) central
 
 -- | Removes a session.
@@ -384,6 +420,17 @@ registerAnswer key (cid, connection) answers central =
         (Active updated nvotes)
         (set (sessions . at key . _Just . votes . at cid) (Just connection) central)
     _ -> central
+
+unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
+unregisterAnswer key cid central = central
+  -- case preview (sessions . ix key . quizState) central of
+  --   Just (Active choices nvotes) -> do
+  --     let updated = foldl' (\chs a -> alter (fmap (+ 1)) a chs) choices answers
+  --     set
+  --       (sessions . at key . _Just . quizState)
+  --       (Active updated nvotes)
+  --       (set (sessions . at key . _Just . votes . at cid) (Just connection) central)
+  --   _ -> central
 
 {--
 accessCentralIO :: Central -> (CentralData -> IO a) -> Snap a
