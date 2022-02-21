@@ -207,10 +207,10 @@
       });
     }
 
-    // Disables or enables all the other buttons.
+    // Disables or enables all unchecked buttons.
     function disableOthers(buttons, button, disable) {
       for (let b of buttons.children)
-        if (b.id != button.id)
+        if (!b.classList.contains("checked"))
           if (disable) {
             b.setAttribute("disabled", true);
             console.log("disable", b.id);
