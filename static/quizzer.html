@@ -172,7 +172,7 @@
 
                 if (!button.classList.contains("checked")) {
                   // Record the vote and check this button.
-                  navigator.vibrate(50);
+                  try { navigator.vibrate(50); } catch (_) { }
                   votes.add(text);
                   button.classList.add("checked");
                   if (votes.size == message.votes)
