@@ -4,75 +4,202 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Quizzer</title>
+  <title>Decker Poll Client</title>
   <style>
+    html {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      padding: 1em;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-flow: column nowrap;
+    }
+
     body {
       font-family: sans-serif;
     }
 
-    button.choice {
-      color: darkred;
+    div#buttons {
+      flex-grow: 1;
+      display: flex;
+      flex-flow: column nowrap;
+    }
+
+    div#buttons button {
+      flex-grow: 1;
+    }
+
+    h1#pollid::before {
+      content: "Poll ID: "
+    }
+
+    p#nvotes {
       font-weight: bold;
     }
 
-    h1#pollid {
-      font-family: monospace;
+    p#nvotes::before {
+      content: "Click any ";
+      font-weight: normal;
+    }
+
+    p#nvotes::after {
+      content: " button(s)!";
+      font-weight: normal;
+    }
+
+    body.connected p#status::before {
+      content: "Connected";
+    }
+
+    body:not(.connected) p#status::before {
+      content: "Disconnected";
+    }
+
+    body.error p#status::before {
+      content: "Error";
+    }
+
+    button {
+      font-size: 200%;
+      font-weight: bold;
+      border-radius: 0.2em;
+      border: 0.1em solid white;
+
+    }
+
+    button:is(#A, #B, #C, #D, #E, #F, #G, #H) {
+      background-color: lightgray;
+    }
+
+    button:is(#A, #B, #C, #D, #E, #F, #G, #H).checked {
+      background-color: gray;
+    }
+
+    button[disabled] {
+      color: gray;
+    }
+
+    button:not([disabled]):hover {
+      border: 0.1em solid black;
     }
   </style>
+
   <style id="server-style">
   </style>
 </head>
 
 <body onload="connect()">
   <h1 id="pollid"> </h1>
+  <p id="nvotes"> </p>
   <div id="buttons"></div>
+  <p id="status"> </p>
+
   <script>
     function connect() {
+      // Derives the server address and poll id from the url of the client.
       let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
-      let quiz = location.hash.slice(1);
+      let pollId = location.hash.slice(1);
+
+      // Usefull elements of the client.
+      let body = document.querySelector("body");
       let header = document.querySelector("h1#pollid");
+      let nvotes = document.querySelector("p#nvotes");
       let buttons = document.querySelector("div#buttons");
       let style = document.querySelector("style#server-style");
-      header.textContent = quiz;
 
-      let socket = new WebSocket(`${base}/quiz/${quiz}`);
+      // Flash the poll id.
+      header.textContent = pollId;
+
+      // Connect to the server.  
+      let socket = new WebSocket(`${base}/quiz/${pollId}`);
+
+      socket.addEventListener("open", (e) => {
+        console.log("Poll: connected to session", pollId);
+        body.classList.add("connected")
+      });
+
+      socket.addEventListener("error", (e) => {
+        console.log("Poll: ERROR connecting to session", pollId);
+        removeButtons(buttons);
+        body.classList.add("error")
+        body.classList.remove("connected")
+      });
+
+      socket.addEventListener("close", (e) => {
+        console.log("Poll: ERROR lost connection to session", pollId);
+        removeButtons(buttons);
+        body.classList.remove("connected")
+      });
+
       socket.addEventListener("message", e => {
         let message = JSON.parse(e.data);
-        console.log(message);
+        console.log("Poll: ", message);
+
         switch (message.tag) {
+
+          // Connected to a session, but no poll in sight. 
           case "Idle":
-            while (buttons.firstChild) {
-              buttons.removeChild(buttons.firstChild);
-            }
+            removeButtons(buttons);
+            nvotes.textContent = "";
             break;
+
+          // Starts a new poll.
           case "Begin":
+            // The choices this user selected.
             let votes = new Set();
+
+            // Show the number of possible votes.
+            nvotes.textContent = message.votes;
+
+            // Wee need some buttons. 
             for (let i = 0; i < message.choices.length; i++) {
+
               let text = message.choices[i];
               let button = document.createElement("button");
+              // Buttons are labeled from A ...
               button.setAttribute("id", String.fromCharCode(65 + i));
               button.textContent = text;
+
+              // Usee actually did something 
               button.addEventListener("click", _ => {
+                // The fact that this button was clickable means we had at least
+                // one vote left, or this button was already checked.
+
                 if (!button.classList.contains("checked")) {
+                  // Record the vote and check this button.
                   votes.add(text);
                   button.classList.add("checked");
                   if (votes.size == message.votes)
                     disableOthers(buttons, button, true);
                 } else {
+                  // Unrecord and uncheck.
                   if (votes.size == message.votes)
                     disableOthers(buttons, button, false);
                   button.classList.remove("checked");
                   votes.delete(text);
                 }
+
+                // Send current vote to server.
                 socket.send(JSON.stringify({ "vote": [...votes] }));
               });
+
+
               buttons.appendChild(button);
             }
             break;
+
+          // This poll is done.
           case "End":
+            // Disable all button, but do not remove yet.
             for (let button of buttons.children)
               button.setAttribute("disabled", 1);
             break;
+
+          // Install some custom CSS.
           case "Css":
             style.textContent = message.css;
             break;
@@ -80,6 +207,7 @@
       });
     }
 
+    // Disables or enables all the other buttons.
     function disableOthers(buttons, button, disable) {
       for (let b of buttons.children)
         if (b.id != button.id)
@@ -90,6 +218,13 @@
             b.removeAttribute("disabled");
             console.log("enable", b.id);
           }
+    }
+
+    // Removes all buttons.
+    function removeButtons(buttons) {
+      while (buttons.firstChild) {
+        buttons.removeChild(buttons.firstChild);
+      }
     }
   </script>
 </body>

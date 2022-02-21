@@ -11,7 +11,6 @@ type Commit = State (IO ())
 
 -- A simple state monad over the Commit monad
 type Atomic s = StateT s Commit
-
 -- | Atomically runs the contents of the TVar in a StateT monad over the Commit
 -- monad. The `commit` function collects IO actions that are performed after
 -- the state has been written back to the TVar.

@@ -67,6 +67,15 @@
           return;
         socket = new WebSocket(`${base}/quiz`);
 
+        socket.addEventListener("open", e => {
+          socket.send(JSON.stringify({
+            "tag": "ClientCss", clientCss: `
+              button:is(#A, #B, #C, #D, #E, #F, #G, #H).checked {
+                background-color: lightgreen;
+              }
+            ` }));
+        });
+
         socket.addEventListener("message", e => {
           let message = JSON.parse(e.data);
           console.log("Received: ", message);
