@@ -155,7 +155,8 @@
             // Show the number of possible votes.
             nvotes.textContent = message.votes;
 
-            // Wee need some buttons. 
+            // Wee need some (new) buttons. 
+            removeButtons(buttons);
             for (let i = 0; i < message.choices.length; i++) {
 
               let text = message.choices[i];
