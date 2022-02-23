@@ -10,13 +10,6 @@ import Data.Digest.Pure.MD5
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Network.WebSockets
-  ( Connection,
-    PendingConnection,
-    acceptRequest,
-    receiveData,
-    rejectRequest,
-    sendTextData,
-  )
 import Network.WebSockets.Snap
 import Relude
 import Relude.Extra.Map
@@ -253,8 +246,9 @@ handleMaster central pending = do
   sendStatus central key
   flip
     finally
-    ( modifyCentral' central (removeSession key)
-        >> putStrLn ("Session destroyed: " ++ toString key)
+    ( do
+        closeClientConnections central key
+        putStrLn ("Session destroyed: " ++ toString key)
     )
     $ forever (masterLoop connection central key)
 
@@ -290,6 +284,13 @@ initSession key choices nvotes = do
   assign
     (sessions . ix key . quizState)
     (Active (fromList $ zip choices (repeat [])) nvotes)
+
+closeClientConnections :: Central -> QuizKey -> IO ()
+closeClientConnections central key =
+  runAtomically central $ do
+    clients <- use (sessions . ix key . clients)
+    assign (sessions . at key) Nothing
+    commit $ mapM_ (`sendClose` ("Bye." :: Text)) clients
 
 sendMasterStatus :: QuizKey -> AC ()
 sendMasterStatus key = do
@@ -341,7 +342,6 @@ clientMain central key cid connection = do
   css <- accessCentral' central (preview (sessions . ix key . clientCss))
   case css of
     Just css -> do
-      print css
       sendClientCommand (Css css) connection
     Nothing -> return ()
   sendStatus central key
@@ -400,11 +400,10 @@ createSession key conn central =
    in set (sessions . at key) (Just session) central
 
 -- | Removes a session.
-removeSession :: QuizKey -> CentralData -> CentralData
-removeSession key = set (sessions . at key) Nothing
-
+-- removeSession :: QuizKey -> CentralData -> CentralData
+-- removeSession key = set (sessions . at key) Nothing
 registerAnswer :: QuizKey -> Client -> [Text] -> CentralData -> CentralData
-registerAnswer key (cid, connection) answers central =
+registerAnswer key (cid, _) answers central =
   case preview (sessions . ix key . quizState) central of
     Just (Active choices nvotes) -> do
       let cleared = Map.map (filter (/= cid)) choices

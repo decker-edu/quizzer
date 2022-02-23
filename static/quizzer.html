@@ -23,6 +23,11 @@
       font-family: sans-serif;
     }
 
+    p,
+    h1 {
+      text-align: center;
+    }
+
     div#buttons {
       flex-grow: 1;
       display: flex;
@@ -33,30 +38,45 @@
       flex-grow: 1;
     }
 
+    h1#pollid:not(.connected) {
+      display: none;
+    }
+
     h1#pollid::before {
       content: "Poll ID: "
+    }
+
+    input#idinput {
+      text-align: center;
+      font-size: 400%;
+      border: 0.1em solid grey;
+      border-radius: 0.2em;
+      padding: 0 0.2em;
+    }
+
+    body.connected input#idinput {
+      display: none;
     }
 
     p#nvotes {
       font-weight: bold;
     }
 
-    p#nvotes::before {
-      content: "Click any ";
+    p#nvotes:not(.connected)::before {
+      content: "Enter 4-character Poll ID";
       font-weight: normal;
     }
 
-    p#nvotes::after {
-      content: " button(s)!";
-      font-weight: normal;
+    body:not(.connected) p#status::before {
+      content: "Disconnected";
     }
 
     body.connected p#status::before {
       content: "Connected";
     }
 
-    body:not(.connected) p#status::before {
-      content: "Disconnected";
+    body.polling p#status::before {
+      content: "Polling";
     }
 
     body.error p#status::before {
@@ -94,6 +114,8 @@
 
 <body onload="connect()">
   <h1 id="pollid"> </h1>
+  <p><input id="idinput" type="text" placeholder="ID" size="4" minlength="4" maxlength="4" pattern="[0-9,a-z]{4}"
+      spellcheck="false" title="Enter Poll ID"></p>
   <p id="nvotes"> </p>
   <div id="buttons"></div>
   <p id="status"> </p>
@@ -107,12 +129,14 @@
       // Usefull elements of the client.
       let body = document.querySelector("body");
       let header = document.querySelector("h1#pollid");
+      let input = document.querySelector("input#idinput");
       let nvotes = document.querySelector("p#nvotes");
       let buttons = document.querySelector("div#buttons");
       let style = document.querySelector("style#server-style");
 
       // Flash the poll id.
       header.textContent = pollId;
+      input.addEventListener("keyup", pollid);
 
       // Connect to the server.  
       let socket = new WebSocket(`${base}/quiz/${pollId}`);
@@ -120,6 +144,7 @@
       socket.addEventListener("open", (e) => {
         console.log("Poll: connected to session", pollId);
         body.classList.add("connected");
+        body.classList.remove("error")
       });
 
       socket.addEventListener("error", (e) => {
@@ -208,6 +233,9 @@
           case "Css":
             style.textContent = message.css;
             break;
+          default:
+            body.classList.add("error");
+            break;
         }
       });
     }
@@ -229,6 +257,16 @@
     function removeButtons(buttons) {
       while (buttons.firstChild) {
         buttons.removeChild(buttons.firstChild);
+      }
+    }
+
+    function pollid(ev) {
+      let id = ev.currentTarget.value;
+      if (id.length == 4) {
+        console.log(id);
+        ev.target.value = "";
+        location.hash = `#${id}`;
+        connect();
       }
     }
   </script>
