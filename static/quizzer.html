@@ -119,20 +119,20 @@
 
       socket.addEventListener("open", (e) => {
         console.log("Poll: connected to session", pollId);
-        body.classList.add("connected")
+        body.classList.add("connected");
       });
 
       socket.addEventListener("error", (e) => {
         console.log("Poll: ERROR connecting to session", pollId);
         removeButtons(buttons);
         body.classList.add("error")
-        body.classList.remove("connected")
+        body.classList.remove("connected");
       });
 
       socket.addEventListener("close", (e) => {
         console.log("Poll: ERROR lost connection to session", pollId);
         removeButtons(buttons);
-        body.classList.remove("connected")
+        body.classList.remove("connected");
       });
 
       socket.addEventListener("message", e => {
@@ -143,12 +143,14 @@
 
           // Connected to a session, but no poll in sight. 
           case "Idle":
+            body.classList.remove("polling");
             removeButtons(buttons);
             nvotes.textContent = "";
             break;
 
           // Starts a new poll.
           case "Begin":
+            body.classList.add("polling");
             // The choices this user selected.
             let votes = new Set();
 
@@ -196,6 +198,7 @@
 
           // This poll is done.
           case "End":
+            body.classList.remove("polling");
             // Disable all button, but do not remove yet.
             for (let button of buttons.children)
               button.setAttribute("disabled", 1);
