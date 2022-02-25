@@ -15,12 +15,11 @@
       padding: 1em;
       height: 100%;
       box-sizing: border-box;
+      font-family: sans-serif;
+      font-size: 30px;
       display: flex;
       flex-flow: column nowrap;
-    }
-
-    body {
-      font-family: sans-serif;
+      align-items: stretch;
     }
 
     p,
@@ -32,10 +31,14 @@
       flex-grow: 1;
       display: flex;
       flex-flow: column nowrap;
+      align-items: center;
+      gap: 0.5em;
     }
 
     div#buttons button {
       flex-grow: 1;
+      font-size: 200%;
+      width: 66%;
     }
 
     h1#pollid:not(.connected) {
@@ -51,10 +54,10 @@
       font-size: 400%;
       border: 0.1em solid grey;
       border-radius: 0.2em;
-      padding: 0 0.2em;
+      padding: 0.1em 0.3em;
     }
 
-    body.connected input#idinput {
+    body.connected p#input {
       display: none;
     }
 
@@ -114,7 +117,7 @@
 
 <body onload="connect()">
   <h1 id="pollid"> </h1>
-  <p><input id="idinput" type="text" placeholder="ID" size="4" minlength="4" maxlength="4" pattern="[0-9,a-z]{4}"
+  <p id="input"><input id="idinput" type="text" placeholder="ID" size="4" minlength="4" maxlength="4" pattern="[0-9,a-z]{4}"
       spellcheck="false" title="Enter Poll ID"></p>
   <p id="nvotes"> </p>
   <div id="buttons"></div>
@@ -124,7 +127,6 @@
     function connect() {
       // Derives the server address and poll id from the url of the client.
       let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
-      let pollId = location.hash.slice(1);
 
       // Usefull elements of the client.
       let body = document.querySelector("body");
@@ -134,9 +136,16 @@
       let buttons = document.querySelector("div#buttons");
       let style = document.querySelector("style#server-style");
 
-      // Flash the poll id.
-      header.textContent = pollId;
-      input.addEventListener("keyup", pollid);
+      let pollId = location.hash.slice(1);
+      if (pollId) {
+        // Flash the poll id.
+        header.textContent = pollId;
+      } else {
+        // Client was loaded without pollId, bail out.
+        input.addEventListener("keyup", pollid);
+        input.focus();
+        return;
+      }
 
       // Connect to the server.  
       let socket = new WebSocket(`${base}/quiz/${pollId}`);
@@ -152,12 +161,15 @@
         removeButtons(buttons);
         body.classList.add("error")
         body.classList.remove("connected");
+        input.focus();
+
       });
 
       socket.addEventListener("close", (e) => {
         console.log("Poll: ERROR lost connection to session", pollId);
         removeButtons(buttons);
         body.classList.remove("connected");
+        input.focus();
       });
 
       socket.addEventListener("message", e => {
@@ -234,6 +246,7 @@
             style.textContent = message.css;
             break;
           default:
+            console.log(message);
             body.classList.add("error");
             break;
         }

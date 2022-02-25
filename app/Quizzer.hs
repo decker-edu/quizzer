@@ -330,7 +330,7 @@ handleClient :: Central -> QuizKey -> Text -> PendingConnection -> IO ()
 handleClient central key cid pending = do
   exists <- accessCentral' central (doesSessionExist key)
   if not exists
-    then rejectRequest pending ("No such session: " <> encodeUtf8 key)
+    then rejectRequest pending (fromLazy $ encode (ErrorMsg $ "No such session: " <> show key))
     else acceptRequest pending >>= clientMain central key cid
 
 clientMain :: Central -> QuizKey -> Text -> Connection -> IO ()
