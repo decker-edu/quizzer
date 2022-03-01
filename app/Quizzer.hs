@@ -66,11 +66,13 @@ data QuizState
   = Ready
   | Active
       { _choices :: Map Text [QuizId],
-        _votes :: Int
+        _votesPerVoter :: Int,
+        _completeVotes :: Int
       }
   | Finished
       { _choices :: Map Text [QuizId],
-        _votes :: Int
+        _votesPerVoter :: Int,
+        _completeVotes :: Int
       }
   deriving (Generic, Show)
 
@@ -78,11 +80,13 @@ data QuizStateMsg
   = MsgReady
   | MsgActive
       { _choices :: Map Text Int,
-        _votes :: Int
+        _votesPerVoter :: Int,
+        _completeVotes :: Int
       }
   | MsgFinished
       { _choices :: Map Text Int,
-        _votes :: Int
+        _votesPerVoter :: Int,
+        _completeVotes :: Int
       }
   deriving (Generic, Show)
 
@@ -90,10 +94,10 @@ instance ToJSON QuizStateMsg where
   toJSON :: QuizStateMsg -> Value
   toJSON MsgReady =
     object ["state" .= ("Ready" :: Text)]
-  toJSON (MsgActive choices votes) =
-    object ["state" .= ("Active" :: Text), "choices" .= choices, "votes" .= votes]
-  toJSON (MsgFinished choices votes) =
-    object ["state" .= ("Finished" :: Text), "choices" .= choices, "votes" .= votes]
+  toJSON (MsgActive choices possible complete) =
+    object ["state" .= ("Active" :: Text), "choices" .= choices, "votes" .= possible, "complete" .= complete]
+  toJSON (MsgFinished choices possible complete) =
+    object ["state" .= ("Finished" :: Text), "choices" .= choices, "votes" .= possible, "complete" .= complete]
 
 -- | Is sent to the presenter on any change.
 data SessionMsg = SessionMsg
@@ -267,8 +271,8 @@ masterLoop connection central key = do
           Stop -> do
             qs <- preuse (sessions . ix key . quizState)
             case qs of
-              Just (Active choices votes) -> do
-                assign (sessions . ix key . quizState) (Finished choices votes)
+              Just (Active choices possible complete) -> do
+                assign (sessions . ix key . quizState) (Finished choices possible complete)
                 sendAllClients key End
               _ -> return ()
           Reset -> do
@@ -280,10 +284,10 @@ masterLoop connection central key = do
         sendMasterStatus key
 
 initSession :: QuizKey -> [Text] -> Int -> AC ()
-initSession key choices nvotes = do
+initSession key choices possible = do
   assign
     (sessions . ix key . quizState)
-    (Active (fromList $ zip choices (repeat [])) nvotes)
+    (Active (fromList $ zip choices (repeat [])) possible 0)
 
 closeClientConnections :: Central -> QuizKey -> IO ()
 closeClientConnections central key =
@@ -300,8 +304,8 @@ sendMasterStatus key = do
   commit $ sendTextData (session ^. master) (encodePretty msg)
 
 countVotes (Ready) = MsgReady
-countVotes (Active choices votes) = MsgActive (Map.map length choices) votes
-countVotes (Finished choices votes) = MsgFinished (Map.map length choices) votes
+countVotes (Active choices possible complete) = MsgActive (Map.map length choices) possible complete
+countVotes (Finished choices possible complete) = MsgFinished (Map.map length choices) possible complete
 
 sendAllClients :: QuizKey -> ClientCommand -> AC ()
 sendAllClients key cmd = do
@@ -349,9 +353,9 @@ clientMain central key cid connection = do
     Nothing -> return ()
     Just quizState -> do
       case quizState of
-        Active choices nvotes -> do
+        Active choices nvotes complete -> do
           sendClientCommand (Begin (keys choices) nvotes) connection
-        Finished _ _ -> sendClientCommand End connection
+        Finished _ _ _ -> sendClientCommand End connection
         Ready -> sendClientCommand Idle connection
       flip
         finally
@@ -405,18 +409,21 @@ createSession key conn central =
 registerAnswer :: QuizKey -> Client -> [Text] -> CentralData -> CentralData
 registerAnswer key (cid, _) answers central =
   case preview (sessions . ix key . quizState) central of
-    Just (Active choices nvotes) -> do
+    Just (Active choices possible complete) ->
       let cleared = Map.map (filter (/= cid)) choices
-      let updated = foldl' (flip (alter (fmap (cid :)))) cleared answers
-      set (sessions . at key . _Just . quizState) (Active updated nvotes) central
+          updated = foldl' (flip (alter (fmap (cid :)))) cleared answers
+          complete' = if length answers == possible then complete + 1 else complete
+       in set (sessions . at key . _Just . quizState) (Active updated possible complete') central
     _ -> central
 
 unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
 unregisterAnswer key cid central =
   case preview (sessions . ix key . quizState) central of
-    Just (Active choices nvotes) -> do
-      let cleared = Map.map (filter (/= cid)) choices
-      set (sessions . at key . _Just . quizState) (Active cleared nvotes) central
+    Just (Active choices possible complete) ->
+      let votes = length $ Map.map (filter (== cid)) choices
+          cleared = Map.map (filter (/= cid)) choices
+          complete' = if votes == possible then complete -1 else complete
+       in set (sessions . at key . _Just . quizState) (Active cleared possible complete') central
     _ -> central
 
 {--
