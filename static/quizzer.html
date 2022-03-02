@@ -189,6 +189,7 @@
 
           // Connected to a session, but no poll in sight. 
           case "Idle":
+            body.classList.remove("winner");
             body.classList.remove("polling");
             removeButtons(buttons);
             nvotes.textContent = "";
@@ -196,6 +197,7 @@
 
           // Starts a new poll.
           case "Begin":
+            body.classList.remove("winner");
             body.classList.add("polling");
             // The choices this user selected.
             let votes = new Set();
