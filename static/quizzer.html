@@ -23,6 +23,10 @@
       align-items: stretch;
     }
 
+    body.winner {
+      background-color: chartreuse;
+    }
+
     p,
     h1 {
       text-align: center;
@@ -79,6 +83,10 @@
       content: "Connected";
     }
 
+    body.winner p#status::before {
+      content: "YOU WON!";
+    }
+
     body.polling p#status::before {
       content: "Polling";
     }
@@ -118,8 +126,8 @@
 
 <body onload="connect()">
   <h1 id="pollid"> </h1>
-  <p id="input"><input id="idinput" type="text" placeholder="ID" size="4" minlength="4" maxlength="4" pattern="[0-9,a-z]{4}"
-      spellcheck="false" title="Enter Poll ID"></p>
+  <p id="input"><input id="idinput" type="text" placeholder="ID" size="4" minlength="4" maxlength="4"
+      pattern="[0-9,a-z]{4}" spellcheck="false" title="Enter Poll ID"></p>
   <p id="nvotes"> </p>
   <div id="buttons"></div>
   <p id="status"> </p>
@@ -237,6 +245,7 @@
           // This poll is done.
           case "End":
             body.classList.remove("polling");
+            if (message.winner) body.classList.add("winner");
             // Disable all button, but do not remove yet.
             for (let button of buttons.children)
               button.setAttribute("disabled", 1);

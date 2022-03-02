@@ -149,7 +149,7 @@
       function start() {
         console.log("Start");
         if (socket == null) return;
-        socket.send(JSON.stringify({ "tag": "Start", "choices": ["A", "B", "C", "D"], votes: 1 }));
+        socket.send(JSON.stringify({ "tag": "Start", "choices": ["A", "B", "C", "D"], solution: ["B", "D"], votes: 2 }));
       }
 
       function stop() {
