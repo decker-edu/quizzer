@@ -373,7 +373,7 @@ clientLoop (cid, connection) central key = do
       putStrLn $ "ERROR: " <> err
       sendTextData connection (encode (ErrorMsg $ toText err))
     Right (ClientVote choices) -> do
-      modifyCentral' central (registerAnswer key (cid, connection) choices)
+      modifyCentral' central (registerAnswer key cid choices . unregisterAnswer key cid)
       sendStatus central key
 
 accessCentral' :: Central -> (CentralData -> a) -> IO a
@@ -406,16 +406,14 @@ createSession key conn central =
 -- | Removes a session.
 -- removeSession :: QuizKey -> CentralData -> CentralData
 -- removeSession key = set (sessions . at key) Nothing
-registerAnswer :: QuizKey -> Client -> [Text] -> CentralData -> CentralData
-registerAnswer key (cid, _) answers central =
+registerAnswer :: QuizKey -> ClientId -> [Text] -> CentralData -> CentralData
+registerAnswer key cid answers central =
   case preview (sessions . ix key . quizState) central of
     Just (Active choices possible complete) ->
-      let wasComplete = length (Map.map (filter (== cid)) choices) == possible
-          cleared = Map.map (filter (/= cid)) choices
+      let cleared = Map.map (filter (/= cid)) choices
           updated = foldl' (flip (alter (fmap (cid :)))) cleared answers
-          complete' = if wasComplete then complete - 1 else complete
-          complete'' = if length answers == possible then complete + 1 else complete'
-       in set (sessions . at key . _Just . quizState) (Active updated possible complete'') central
+          complete' = if length answers == possible then complete + 1 else complete
+       in set (sessions . at key . _Just . quizState) (Active updated possible complete') central
     _ -> central
 
 unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
