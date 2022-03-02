@@ -353,9 +353,9 @@ clientMain central key cid connection = do
     Nothing -> return ()
     Just quizState -> do
       case quizState of
-        Active choices nvotes complete -> do
+        Active choices nvotes _ -> do
           sendClientCommand (Begin (keys choices) nvotes) connection
-        Finished _ _ _ -> sendClientCommand End connection
+        Finished {} -> sendClientCommand End connection
         Ready -> sendClientCommand Idle connection
       flip
         finally
@@ -410,10 +410,12 @@ registerAnswer :: QuizKey -> Client -> [Text] -> CentralData -> CentralData
 registerAnswer key (cid, _) answers central =
   case preview (sessions . ix key . quizState) central of
     Just (Active choices possible complete) ->
-      let cleared = Map.map (filter (/= cid)) choices
+      let wasComplete = length (Map.map (filter (== cid)) choices) == possible
+          cleared = Map.map (filter (/= cid)) choices
           updated = foldl' (flip (alter (fmap (cid :)))) cleared answers
-          complete' = if length answers == possible then complete + 1 else complete
-       in set (sessions . at key . _Just . quizState) (Active updated possible complete') central
+          complete' = if wasComplete then complete - 1 else complete
+          complete'' = if length answers == possible then complete + 1 else complete'
+       in set (sessions . at key . _Just . quizState) (Active updated possible complete'') central
     _ -> central
 
 unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
