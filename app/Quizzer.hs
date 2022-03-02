@@ -419,10 +419,10 @@ registerAnswer key cid answers central =
 unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
 unregisterAnswer key cid central =
   case preview (sessions . ix key . quizState) central of
-    Just (Active choices possible complete) ->
-      let votes = length $ Map.map (filter (== cid)) choices
+    Just state@(Active choices possible complete) ->
+      let votes = length $ filter (== cid) $ concat $ Map.elems choices
           cleared = Map.map (filter (/= cid)) choices
-          complete' = if votes == possible then complete -1 else complete
+          complete' = if votes == possible then complete - (1) else complete
        in set (sessions . at key . _Just . quizState) (Active cleared possible complete') central
     _ -> central
 

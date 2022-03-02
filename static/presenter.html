@@ -41,14 +41,18 @@
       <th>B</th>
       <th>C</th>
       <th>D</th>
-      <th></th>
+      <th>Pa</th>
+      <th>Nv</th>
+      <th>Co</th>
     </tr>
     <tr>
       <td id="RA"></td>
       <td id="RB"></td>
       <td id="RC"></td>
       <td id="RD"></td>
+      <td id="P"></td>
       <td id="N"></td>
+      <td id="C"></td>
     </tr>
     <script>
       var socket = null;
@@ -75,6 +79,9 @@
               }
             ` }));
         });
+        let tdp = document.querySelector(`td#P`);
+        let tdn = document.querySelector(`td#N`);
+        let tdc = document.querySelector(`td#C`);
 
         socket.addEventListener("message", e => {
           let message = JSON.parse(e.data);
@@ -86,8 +93,7 @@
             quizid.textContent = quiz;
             link.setAttribute("href", `client#${quiz}`)
           } else {
-            let td = document.querySelector(`td#N`);
-            td.textContent = message.participants;
+            tdp.textContent = message.participants;
             switch (message.quiz.state) {
               case "Ready":
                 startBtn.removeAttribute("disabled");
@@ -97,6 +103,10 @@
                 counts = table.querySelectorAll("td");
                 for (let count of counts) {
                   count.textContent = "";
+                }
+                {
+                  tdc.textContent = 0;
+                  tdn.textContent = 0;
                 }
                 break;
 
@@ -109,6 +119,10 @@
                   let td = document.querySelector(`td#R${name}`);
                   td.textContent = message.quiz.choices[name];
                 }
+                {
+                  tdn.textContent = message.quiz.votes;
+                  tdc.textContent = message.quiz.complete;
+                }
                 break;
 
               case "Finished":
@@ -119,6 +133,10 @@
                 for (let name in message.quiz.choices) {
                   let td = document.querySelector(`td#R${name}`);
                   td.textContent = message.quiz.choices[name];
+                }
+                {
+                  tdn.textContent = message.quiz.votes;
+                  tdc.textContent = message.quiz.complete;
                 }
                 break;
 
