@@ -222,7 +222,7 @@
 
                 if (!button.classList.contains("checked")) {
                   // Record the vote and check this button.
-                  try { navigator.vibrate(50); } catch (_) { }
+                  try {navigator.vibrate(50);} catch (_) {}
                   votes.add(text);
                   button.classList.add("checked");
                   if (votes.size == message.votes)
@@ -236,7 +236,7 @@
                 }
 
                 // Send current vote to server.
-                socket.send(JSON.stringify({ "vote": [...votes] }));
+                socket.send(JSON.stringify({"vote": [...votes]}));
               });
 
 
@@ -247,7 +247,10 @@
           // This poll is done.
           case "End":
             body.classList.remove("polling");
-            if (message.winner) body.classList.add("winner");
+            if (message.winner) {
+              console.log("You won!")
+              body.classList.add("winner");
+            }
             // Disable all button, but do not remove yet.
             for (let button of buttons.children)
               button.setAttribute("disabled", 1);
@@ -288,7 +291,6 @@
     function pollid(ev) {
       let id = ev.currentTarget.value;
       if (id.length == 4) {
-        console.log(id);
         ev.target.value = "";
         location.hash = `#${id}`;
         connect();

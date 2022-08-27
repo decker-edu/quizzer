@@ -149,19 +149,19 @@
       function start() {
         console.log("Start");
         if (socket == null) return;
-        socket.send(JSON.stringify({ "tag": "Start", "choices": ["A", "B", "C", "D"], solution: ["B", "D"], votes: 2 }));
+        socket.send(JSON.stringify({"tag": "Start", "choices": ["A", "B", "C", "D"], solution: ["B", "D"], votes: 2, winnerselection: "Random"}));
       }
 
       function stop() {
         console.log("Stop");
         if (socket == null) return;
-        socket.send(JSON.stringify({ "tag": "Stop" }));
+        socket.send(JSON.stringify({"tag": "Stop"}));
       }
 
       function reset() {
         console.log("Reset");
         if (socket == null) return;
-        socket.send(JSON.stringify({ "tag": "Reset" }));
+        socket.send(JSON.stringify({"tag": "Reset"}));
       }
     </script>
 </body>

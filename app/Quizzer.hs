@@ -40,7 +40,7 @@ data MasterCommand
   = Start {
       _choices :: [Text], 
       _solution :: Maybe [Text], 
-      _winnerSelection :: Maybe WinnerSelection,
+      _winnerselection :: Maybe WinnerSelection,
       _votes :: Int
     }
   | Stop
@@ -276,9 +276,9 @@ handleMaster central pending = do
 
 
 selectWinner :: Int -> WinnerSelection -> [ClientId] -> Maybe ClientId
-selectWinner rnd FirstVoter winners = listToMaybe (reverse winners)
+selectWinner _ FirstVoter winners = listToMaybe (reverse winners)
 selectWinner rnd Random winners = do
-  let i = rnd `mod` (length winners)
+  let i = (abs rnd) `mod` (length winners)
   atMay winners i
 
 masterLoop :: Connection -> Central -> QuizKey -> IO ()
@@ -300,6 +300,7 @@ masterLoop connection central key = do
               Just (Active choices solution selection winners possible partial complete) -> do
                 assign (sessions . ix key . quizState) (Finished choices possible partial complete)
                 let winner = selectWinner rnd selection winners
+                commit $ putStrLn $ "winner selection: " <> show selection
                 sendEndClients key winner
               _ -> return ()
           Reset -> do
