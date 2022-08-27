@@ -62,11 +62,20 @@ following commands are recognized:
 -   `Start`: Beginns a new quiz and specifies the possible answers. People can
     answer now. `choices` contains the possible choices as strings that will
     appear on the buttons. `votes` is the number of votes allowed per voter.
+    `winnerselection` specifies how the winnner is selected:
+
+    - `FirstVoter` (default) - the voter that gave the right answer first wins
+    - `Random` - the winner is selected randomly
+
 -   `Stop`: Stops the quiz. No more answers possible.
 -   `Reset`: Termintes the quiz. Go back to ready status.
 
 ``` json
-{ "tag": "Start", "choices": ["A", "B", "C"], "votes": 1 }
+{ "tag": "Start", 
+  "choices": ["A", "B", "C"], 
+  "votes": 1,
+  "winnerselection": "Random"
+}
 ```
 
 ``` json
