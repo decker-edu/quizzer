@@ -22,6 +22,7 @@ import System.Environment
 import System.FilePath ((</>))
 import System.Random
 import qualified Text.Show as Text
+import Safe (atMay)
 
 data Opts = Opts
   { _debug :: Bool,
@@ -274,11 +275,11 @@ handleMaster central pending = do
     $ forever (masterLoop connection central key)
 
 
-selectWinner :: WinnerSelection -> [ClientId] -> IO (Maybe ClientId)
-selectWinner FirstVoter winners = return $ listToMaybe (reverse winners)
-selectWinner Random winners = do
-  i :: Int <- (`mod` (length winners)) <$> randomIO
-  return $ atMay winner i
+selectWinner :: Int -> WinnerSelection -> [ClientId] -> Maybe ClientId
+selectWinner rnd FirstVoter winners = listToMaybe (reverse winners)
+selectWinner rnd Random winners = do
+  let i = rnd `mod` (length winners)
+  atMay winners i
 
 masterLoop :: Connection -> Central -> QuizKey -> IO ()
 masterLoop connection central key = do
@@ -286,18 +287,20 @@ masterLoop connection central key = do
   let cmd = eitherDecode bytes
   case cmd of
     Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
-    Right cmd ->
+    Right cmd -> do
+      rnd :: Int <- randomIO
       runAtomically central $ do
         case cmd of
           Start choices solution selection votes -> do
-            initSession key choices (fromMaybe [] solution) selection votes
+            initSession key choices (fromMaybe [] solution) (fromMaybe FirstVoter selection) votes
             sendAllClients key (Begin choices votes)
           Stop -> do
             qs <- preuse (sessions . ix key . quizState)
             case qs of
               Just (Active choices solution selection winners possible partial complete) -> do
                 assign (sessions . ix key . quizState) (Finished choices possible partial complete)
-                sendEndClients key (selectWinner selection winners)
+                let winner = selectWinner rnd selection winners
+                sendEndClients key winner
               _ -> return ()
           Reset -> do
             assign (sessions . ix key . quizState) Ready
@@ -311,7 +314,7 @@ initSession :: QuizKey -> [Text] -> [Text] -> WinnerSelection -> Int -> AC ()
 initSession key choices solution selection possible = do
   assign
     (sessions . ix key . quizState)
-    (Active (fromList $ zip choices (repeat [])) (sort solution) selection [] possible 0)
+    (Active (fromList $ zip choices (repeat [])) (sort solution) selection [] possible 0 0)
 
 closeClientConnections :: Central -> QuizKey -> IO ()
 closeClientConnections central key =
@@ -328,7 +331,7 @@ sendMasterStatus key = do
   commit $ sendTextData (session ^. master) (encodePretty msg)
 
 countVotes (Ready) = MsgReady
-countVotes (Active choices _ winners possible partial complete) = MsgActive (Map.map length choices) possible partial complete
+countVotes (Active choices _ _ winners possible partial complete) = MsgActive (Map.map length choices) possible partial complete
 countVotes (Finished choices possible partial complete) = MsgFinished (Map.map length choices) possible partial complete
 
 sendAllClients :: QuizKey -> ClientCommand -> AC ()
@@ -384,7 +387,7 @@ clientMain central key cid connection = do
     Nothing -> return ()
     Just quizState -> do
       case quizState of
-        Active choices _ _ nvotes _ -> do
+        Active choices _ _ _ _ nvotes _ -> do
           sendClientCommand (Begin (keys choices) nvotes) connection
         Finished {} -> sendClientCommand (End False) connection
         Ready -> sendClientCommand Idle connection
@@ -440,25 +443,25 @@ createSession key conn central =
 registerAnswer :: QuizKey -> ClientId -> [Text] -> CentralData -> CentralData
 registerAnswer key cid answers central =
   case preview (sessions . ix key . quizState) central of
-    Just (Active choices solution winners possible partial complete) ->
+    Just (Active choices solution selection winners possible partial complete) ->
       let cleared = Map.map (filter (/= cid)) choices
           updated = foldl' (flip (alter (fmap (cid :)))) cleared answers
           complete' = if length answers == possible then complete + 1 else complete
           partial' = if not (null answers) then partial + 1 else partial
           winners' = if sort answers == solution then cid : winners else winners
-       in set (sessions . at key . _Just . quizState) (Active updated solution winners' possible partial' complete') central
+       in set (sessions . at key . _Just . quizState) (Active updated solution selection winners' possible partial' complete') central
     _ -> central
 
 unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
 unregisterAnswer key cid central =
   case preview (sessions . ix key . quizState) central of
-    Just (Active choices solution winners possible partial complete) ->
+    Just (Active choices solution selection winners possible partial complete) ->
       let votes = length $ filter (== cid) $ concat $ Map.elems choices
           cleared = Map.map (filter (/= cid)) choices
           complete' = if votes == possible then complete - 1 else complete
-          partial' = if not (null votes) then partial - 1 else partial
+          partial' = if votes /= 0 then partial - 1 else partial
           winners' = filter (/= cid) winners
-       in set (sessions . at key . _Just . quizState) (Active cleared solution winners' possible partial' complete') central
+       in set (sessions . at key . _Just . quizState) (Active cleared solution selection winners' possible partial' complete') central
     _ -> central
 
 {--

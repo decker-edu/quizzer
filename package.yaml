@@ -29,6 +29,7 @@ dependencies:
   - pureMD5
   - random
   - relude
+  - safe
   - snap-core
   - snap-server
   - split
