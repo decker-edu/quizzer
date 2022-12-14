@@ -137,4 +137,4 @@ The client may submit a quiz answer by sending a `choice` message like so:
 
 ## Source code and issues
 
--   GitHub: [monofon/qiuzzer](https://github.com/monofon/quizzer)
+-   GitHub: [decker-edu/quizzer](https://github.com/decker-edu/quizzer)
