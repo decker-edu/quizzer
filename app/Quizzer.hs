@@ -276,6 +276,7 @@ handleMaster central pending = do
 
 
 selectWinner :: Int -> WinnerSelection -> [ClientId] -> Maybe ClientId
+selectWinner _ _ [] = Nothing
 selectWinner _ FirstVoter winners = listToMaybe (reverse winners)
 selectWinner rnd Random winners = do
   let i = (abs rnd) `mod` (length winners)
