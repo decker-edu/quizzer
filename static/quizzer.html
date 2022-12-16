@@ -137,7 +137,7 @@
       // Derives the server address and poll id from the url of the client.
       let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
 
-      // Usefull elements of the client.
+      // Useful elements of the client.
       let body = document.querySelector("body");
       let header = document.querySelector("h1#pollid");
       let input = document.querySelector("input#idinput");
@@ -145,13 +145,15 @@
       let buttons = document.querySelector("div#buttons");
       let style = document.querySelector("style#server-style");
 
+      // keyboard input
+      input.addEventListener("keyup", enterPollId);
+
       let pollId = location.hash.slice(1);
       if (pollId) {
         // Flash the poll id.
         header.textContent = pollId;
       } else {
         // Client was loaded without pollId, bail out.
-        input.addEventListener("keyup", pollid);
         input.focus();
         return;
       }
@@ -285,7 +287,7 @@
       }
     }
 
-    function pollid(ev) {
+    function enterPollId(ev) {
       let id = ev.currentTarget.value;
       if (id.length == 4) {
         console.log(id);
