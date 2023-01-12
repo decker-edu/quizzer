@@ -6,12 +6,13 @@ readme:
 	pandoc --standalone --self-contained -M css:README.css -M title:Quizzer README.md -o README.html
 
 install-service: build
+	sudo cp ~/.local/bin/quizzer /usr/local/bin
 	sudo cp quizzer.service /etc/systemd/system/
 	sudo chmod 644 /etc/systemd/system/quizzer.service
 	sudo systemctl daemon-reload
 	sudo systemctl enable quizzer
-	sudo mkdir -p /var/log/quizzer
-	sudo chown henrik:henrik /var/log/quizzer
+	sudo mkdir -p /var/log/quizzer /var/tmp/quizzer
+	sudo chown daemon:daemon /var/log/quizzer /var/tmp/quizzer
 	sudo systemctl restart quizzer
 	sudo systemctl status quizzer
 	

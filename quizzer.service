@@ -3,10 +3,10 @@ Description=Quizzer
 
 [Service]
 Type=simple
-WorkingDirectory=/home/henrik/workspace/quizzer
-ExecStart=/home/henrik/.local/bin/quizzer 
-User=henrik
-Group=henrik
+WorkingDirectory=/var/tmp/quizzer
+ExecStart=/usr/local/bin/quizzer 
+User=daemon
+Group=daemon
 Restart=always
 RestartSec=3
 
