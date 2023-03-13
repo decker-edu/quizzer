@@ -389,7 +389,7 @@ clientMain central key cid connection = do
     Nothing -> return ()
     Just quizState -> do
       case quizState of
-        Active choices _ _ _ _ nvotes _ -> do
+        Active choices _ _ _ nvotes _ _ -> do
           sendClientCommand (Begin (keys choices) nvotes) connection
         Finished {} -> sendClientCommand (End False) connection
         Ready -> sendClientCommand Idle connection
