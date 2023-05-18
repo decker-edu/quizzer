@@ -12,6 +12,7 @@ install-service: build
 	sudo systemctl daemon-reload
 	sudo systemctl enable quizzer
 	sudo mkdir -p /var/log/quizzer /var/tmp/quizzer
+	sudo cp -r README.html static /var/tmp/quizzer
 	sudo chown daemon:daemon /var/log/quizzer /var/tmp/quizzer
 	sudo systemctl restart quizzer
 	sudo systemctl status quizzer
