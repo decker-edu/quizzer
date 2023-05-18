@@ -311,6 +311,7 @@
       if (id.length == 4) {
         ev.target.value = "";
         body.pollId = id;
+        body.retries = 0;
         connect();
       }
     }

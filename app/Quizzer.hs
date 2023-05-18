@@ -45,6 +45,7 @@ data MasterCommand
     }
   | Stop
   | Reset
+  | Beat
   | ClientCss {_clientCss :: Text}
   deriving (Generic, Show)
 
@@ -309,6 +310,7 @@ masterLoop connection central key = do
             sendAllClients key Idle
           ClientCss css -> do
             assign (sessions . ix key . clientCss) css
+          Beat -> return ()
 
         sendMasterStatus key
 
