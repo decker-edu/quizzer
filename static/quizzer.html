@@ -133,57 +133,73 @@
   <p id="status"> </p>
 
   <script>
-    function connect() {
-      // Derives the server address and poll id from the url of the client.
-      let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
+    // Try to reconnect if the connection is lost for any reason
+    const connectionTimeout = 200;
+    const maxRetries = 10;
 
-      // Useful elements of the client.
-      let body = document.querySelector("body");
-      let header = document.querySelector("h1#pollid");
-      let input = document.querySelector("input#idinput");
-      let nvotes = document.querySelector("p#nvotes");
-      let buttons = document.querySelector("div#buttons");
-      let style = document.querySelector("style#server-style");
+    // Derives the server address and poll id from the url of the client.
+    let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
 
-      // keyboard input
-      input.addEventListener("keyup", enterPollId);
+    // Useful elements of the client.
+    let body = document.querySelector("body");
+    let header = document.querySelector("h1#pollid");
+    let input = document.querySelector("input#idinput");
+    let nvotes = document.querySelector("p#nvotes");
+    let buttons = document.querySelector("div#buttons");
+    let style = document.querySelector("style#server-style");
 
-      let pollId = location.hash.slice(1);
-      if (pollId) {
-        // Flash the poll id.
-        header.textContent = pollId;
-      } else {
-        // Client was loaded without pollId, bail out.
-        input.focus();
-        return;
+    // keyboard input
+    input.addEventListener("keyup", enterPollId);
+
+    body.pollId = location.hash.slice(1);
+    if (body.pollId) {
+      // Flash the poll id.
+      header.textContent = body.pollId;
+    } else {
+      // Client was loaded without body.pollId, bail out.
+      input.focus();
+      throw new Error("Poll: Missing poll id.");
+    }
+
+    body.retries = 0;
+
+    function reconnect() {
+      if (body.retries++ < maxRetries && body.socket.readyState == 3) {
+        console.log("Poll: Trying to reconnect to session:", body.pollId, "tries:", body.retries);
+        setTimeout(connect, connectionTimeout);
       }
+    }
+
+    function connect() {
 
       // Connect to the server.  
-      let socket = new WebSocket(`${base}/quiz/${pollId}`);
+      body.socket = new WebSocket(`${base}/quiz/${body.pollId}`);
 
-      socket.addEventListener("open", (e) => {
-        console.log("Poll: connected to session", pollId);
+      body.socket.addEventListener("open", (e) => {
+        console.log("Poll: connected to session", body.pollId);
         body.classList.add("connected");
-        body.classList.remove("error")
+        body.classList.remove("error");
+        body.retries = 0;
       });
 
-      socket.addEventListener("error", (e) => {
-        console.log("Poll: ERROR connecting to session", pollId);
+      body.socket.addEventListener("error", (e) => {
+        console.log("Poll: ERROR connecting to session", body.pollId);
         removeButtons(buttons);
         body.classList.add("error")
         body.classList.remove("connected");
         input.focus();
-
+        reconnect();
       });
 
-      socket.addEventListener("close", (e) => {
-        console.log("Poll: ERROR lost connection to session", pollId);
+      body.socket.addEventListener("close", (e) => {
+        console.log("Poll: ERROR lost connection to session", body.pollId);
         removeButtons(buttons);
         body.classList.remove("connected");
         input.focus();
+        reconnect();
       });
 
-      socket.addEventListener("message", e => {
+      body.socket.addEventListener("message", e => {
         let message = JSON.parse(e.data);
         console.log("Poll: ", message);
 
@@ -224,7 +240,7 @@
 
                 if (!button.classList.contains("checked")) {
                   // Record the vote and check this button.
-                  try {navigator.vibrate(50);} catch (_) {}
+                  try { navigator.vibrate(50); } catch (_) { }
                   votes.add(text);
                   button.classList.add("checked");
                   if (votes.size == message.votes)
@@ -238,7 +254,7 @@
                 }
 
                 // Send current vote to server.
-                socket.send(JSON.stringify({"vote": [...votes]}));
+                body.socket.send(JSON.stringify({ "vote": [...votes] }));
               });
 
 
@@ -294,7 +310,7 @@
       let id = ev.currentTarget.value;
       if (id.length == 4) {
         ev.target.value = "";
-        location.hash = `#${id}`;
+        body.pollId = id;
         connect();
       }
     }
