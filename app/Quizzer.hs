@@ -177,7 +177,7 @@ type SessionMap = Map QuizKey Session
 
 -- |  The central state of the server.
 data CentralData = CentralData
-  { _baseUrl :: String,
+  { -- _baseUrl :: String,
     _sessions :: SessionMap
   }
 
@@ -226,7 +226,7 @@ main = do
               setAccessLog (ConfigFileLog (logBaseDir </> "access.log")) $
                 setErrorLog (ConfigFileLog (logBaseDir </> "error.log")) mempty ::
               Config Snap ()
-      central <- newTVarIO $ CentralData "" (fromList [])
+      central <- newTVarIO $ CentralData (fromList [])
       simpleHttpServe config (routes central)
     Left err -> do
       putTextLn $ "Usage: quizzer [OPTION...]" <> err
@@ -299,7 +299,7 @@ masterLoop connection central key = do
           Stop -> do
             qs <- preuse (sessions . ix key . quizState)
             case qs of
-              Just (Active choices solution selection winners possible partial complete) -> do
+              Just (Active choices _ selection winners possible partial complete) -> do
                 assign (sessions . ix key . quizState) (Finished choices possible partial complete)
                 let winner = selectWinner rnd selection winners
                 commit $ putStrLn $ "winner selection: " <> show selection
@@ -335,7 +335,7 @@ sendMasterStatus key = do
   commit $ sendTextData (session ^. master) (encodePretty msg)
 
 countVotes (Ready) = MsgReady
-countVotes (Active choices _ _ winners possible partial complete) = MsgActive (Map.map length choices) possible partial complete
+countVotes (Active choices _ _ _ possible partial complete) = MsgActive (Map.map length choices) possible partial complete
 countVotes (Finished choices possible partial complete) = MsgFinished (Map.map length choices) possible partial complete
 
 sendAllClients :: QuizKey -> ClientCommand -> AC ()
@@ -397,9 +397,10 @@ clientMain central key cid connection = do
         Ready -> sendClientCommand Idle connection
       flip
         finally
-        ( modifyCentral' central (removeClient key cid . unregisterAnswer key cid)
-            >> sendStatus central key
-            >> putStrLn ("Client removed: " ++ toString key ++ ": " ++ show cid)
+        ( do
+            cd <- stateCentral central (removeClient key cid . unregisterAnswer key cid)
+            when (isSessionActive key cd) $ sendStatus central key
+            putStrLn ("Client removed: " ++ toString key ++ ": " ++ show cid)
         )
         $ forever (clientLoop client central key)
 
@@ -419,6 +420,16 @@ accessCentral' central func = func <$> readTVarIO central
 
 modifyCentral' :: Central -> (CentralData -> CentralData) -> IO ()
 modifyCentral' central func = atomically $ modifyTVar' central func
+
+stateCentral :: Central -> (CentralData -> CentralData) -> IO CentralData
+stateCentral central func = atomically $ (modifyTVar' central func >> readTVar central)
+
+-- | Returns True if the session is active.
+isSessionActive :: QuizKey -> CentralData -> Bool
+isSessionActive key central = 
+  case preview (sessions . ix key . quizState) central of
+    Just (Active {}) -> True
+    _ -> False
 
 -- | Add the client if the specified session exists.
 addClient :: QuizKey -> Client -> CentralData -> CentralData
