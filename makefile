@@ -16,6 +16,9 @@ install-service: build
 	sudo chown daemon:daemon /var/log/quizzer /var/tmp/quizzer
 	sudo systemctl restart quizzer
 	sudo systemctl status quizzer
+
+log:
+	sudo journalctl -x -f -u quizzer.service
 	
 run-local:
 	(sleep 1; open http://localhost:3003/presenter.html)&

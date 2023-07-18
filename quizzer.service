@@ -4,7 +4,7 @@ Description=Quizzer
 [Service]
 Type=simple
 WorkingDirectory=/var/tmp/quizzer
-ExecStart=/usr/local/bin/quizzer 
+ExecStart=/usr/local/bin/quizzer -d
 User=daemon
 Group=daemon
 Restart=always
