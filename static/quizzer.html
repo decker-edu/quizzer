@@ -103,11 +103,11 @@
 
     }
 
-    button:is(#A, #B, #C, #D, #E, #F, #G, #H) {
+    button:is(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P) {
       background-color: lightgray;
     }
 
-    button:is(#A, #B, #C, #D, #E, #F, #G, #H).checked {
+    button:is(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P).checked {
       background-color: gray;
     }
 
@@ -240,7 +240,7 @@
 
                 if (!button.classList.contains("checked")) {
                   // Record the vote and check this button.
-                  try { navigator.vibrate(50); } catch (_) { }
+                  try {navigator.vibrate(50);} catch (_) { }
                   votes.add(text);
                   button.classList.add("checked");
                   if (votes.size == message.votes)
@@ -254,7 +254,7 @@
                 }
 
                 // Send current vote to server.
-                body.socket.send(JSON.stringify({ "vote": [...votes] }));
+                body.socket.send(JSON.stringify({"vote": [...votes]}));
               });
 
 
