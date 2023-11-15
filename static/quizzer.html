@@ -70,7 +70,7 @@
       font-weight: bold;
     }
 
-    p#nvotes:not(.connected)::before {
+    body:not(.connected) p#nvotes::before {
       content: "Enter 4-character Poll ID";
       font-weight: normal;
     }
@@ -124,7 +124,7 @@
   </style>
 </head>
 
-<body onload="connect()">
+<body>
   <h1 id="pollid"> </h1>
   <p id="input"><input id="idinput" type="text" placeholder="ID" size="4" minlength="4" maxlength="4"
       pattern="[0-9,a-z]{4}" spellcheck="false" title="Enter Poll ID"></p>
@@ -154,11 +154,14 @@
     body.pollId = location.hash.slice(1);
     if (body.pollId) {
       // Flash the poll id.
+      console.log("poll id from location hash: ", body.pollId);
       header.textContent = body.pollId;
+      body.addEventListener("load", connect, { once: true });
     } else {
       // Client was loaded without body.pollId, bail out.
       input.focus();
-      throw new Error("Poll: Missing poll id.");
+      console.log("poll id manual input requested.");
+      // throw new Error("Poll: Missing poll id.");
     }
 
     body.retries = 0;
@@ -171,7 +174,6 @@
     }
 
     function connect() {
-
       // Connect to the server.  
       body.socket = new WebSocket(`${base}/quiz/${body.pollId}`);
 
@@ -240,7 +242,7 @@
 
                 if (!button.classList.contains("checked")) {
                   // Record the vote and check this button.
-                  try {navigator.vibrate(50);} catch (_) { }
+                  try { navigator.vibrate(50); } catch (_) { }
                   votes.add(text);
                   button.classList.add("checked");
                   if (votes.size == message.votes)
@@ -254,7 +256,7 @@
                 }
 
                 // Send current vote to server.
-                body.socket.send(JSON.stringify({"vote": [...votes]}));
+                body.socket.send(JSON.stringify({ "vote": [...votes] }));
               });
 
 
