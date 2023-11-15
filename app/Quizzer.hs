@@ -18,7 +18,6 @@ import Snap.Http.Server
 import Snap.Util.FileServe
 import System.Console.GetOpt as GetOpt
 import System.Directory
-import System.Environment
 import System.FilePath ((</>))
 import System.Random
 import qualified Text.Show as Text
