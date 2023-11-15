@@ -7,3 +7,4 @@ README.html
 *.lock
 *.pid
 test.token
+.vscode
