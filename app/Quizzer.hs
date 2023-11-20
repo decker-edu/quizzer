@@ -236,9 +236,10 @@ routes central =
   route
     [ ("/quiz/:quiz-key", method GET $ handleQuiz central),
       ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central),
-      ("/", ifTop $ serveFileAs "text/html" "README.html"),
+      -- ("/", ifTop $ serveFileAs "text/html" "README.html"),
       ("/presenter.html", serveFileAs "text/html" "static/presenter.html"),
-      ("/client", serveFileAs "text/html" "static/quizzer.html")
+      ("/client", serveFileAs "text/html" "static/client.html"),
+      ("/", serveFileAs "text/html" "static/client.html")
     ]
 
 mkQuizKey :: IO QuizKey
