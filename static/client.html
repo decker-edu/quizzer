@@ -156,7 +156,7 @@
       // Flash the poll id.
       console.log("poll id from location hash: ", body.pollId);
       header.textContent = body.pollId;
-      body.addEventListener("load", connect, { once: true });
+      window.addEventListener("load", connect, { once: true });
     } else {
       // Client was loaded without body.pollId, bail out.
       input.focus();
