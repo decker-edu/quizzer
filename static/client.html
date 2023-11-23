@@ -13,7 +13,7 @@
 
     body {
       margin: 0;
-      padding: 1em;
+      padding: 0;
       height: 100%;
       box-sizing: border-box;
       font-family: sans-serif;
@@ -56,7 +56,7 @@
 
     input#idinput {
       text-align: center;
-      font-size: 400%;
+      font-size: min(20vw, 400%);
       border: 0.1em solid grey;
       border-radius: 0.2em;
       padding: 0.1em 0.3em;
@@ -73,26 +73,32 @@
     body:not(.connected) p#nvotes::before {
       content: "Enter 4-character Poll ID";
       font-weight: normal;
+      font-size: min(8vw, 200%);
     }
 
     body:not(.connected) p#status::before {
-      content: "Disconnected";
+      content: "No Session (yet)";
+      font-size: min(8vw, 200%);
     }
 
     body.connected p#status::before {
-      content: "Connected";
+      content: "Connected. Please wait for the poll to start.";
+      font-size: min(4vw, 200%);
     }
 
     body.winner p#status::before {
       content: "YOU WON!";
+      font-size: min(4vw, 200%);
     }
 
     body.polling p#status::before {
       content: "Polling";
+      font-size: min(4vw, 200%);
     }
 
     body.error p#status::before {
-      content: "Error";
+      content: "Error: No such session or unable to establish connection.";
+      font-size: min(4vw, 200%);
     }
 
     button {
