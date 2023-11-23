@@ -88,14 +88,17 @@
 
     body.winner p#status::before {
       content: "YOU WON!";
+      font-size: min(4vw, 200%);
     }
 
     body.polling p#status::before {
       content: "Polling";
+      font-size: min(4vw, 200%);
     }
 
     body.error p#status::before {
       content: "Error: No such session or unable to establish connection.";
+      font-size: min(4vw, 200%);
     }
 
     button {
