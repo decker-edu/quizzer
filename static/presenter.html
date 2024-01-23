@@ -57,19 +57,31 @@
     <script>
       var socket = null;
       var quiz = null;
+      var secret = null;
 
-      let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
+      // let base = document.baseURI.replace(/^http(s?):/, "ws$1:").replace(/\/[^\/]*$/, "");
+      let base = `ws://${window.location.host}`
       let quizid = document.querySelector("span#quizid");
       let table = document.querySelector("table");
       let link = document.querySelector("a#link");
       let startBtn = document.querySelector("button#start");
       let stopBtn = document.querySelector("button#stop");
       let resetBtn = document.querySelector("button#reset");
+      let loc = window.location.href;
 
       function connect() {
         if (socket != null)
           return;
-        socket = new WebSocket(`${base}/quiz`);
+
+        quiz = null;
+        if (location.hash) {
+          let m = location.hash.match(/#(.*)\/(.*)/);
+          let sockUrl = `${base}/quiz/${m[1]}/${m[2]}`;
+          console.log(sockUrl);
+          socket = new WebSocket(sockUrl);
+        } else {
+          socket = new WebSocket(`${base}/quiz`);
+        }
 
         socket.addEventListener("open", e => {
           socket.send(JSON.stringify({
@@ -89,8 +101,10 @@
           if (message.error) {
             console.log("Server error: ", message.error);
           } else if (quiz == null) {
-            quiz = message.key;
-            quizid.textContent = quiz;
+            quiz = message.Key;
+            secret = message.Secret;
+            history.replaceState(null, "", `http://localhost:3003/presenter.html#${quiz}/${secret}`);
+            quizid.textContent = `${quiz} (${secret})`;
             link.setAttribute("href", `client#${quiz}`)
           } else {
             tdp.textContent = message.participants;

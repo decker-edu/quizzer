@@ -63,6 +63,7 @@ executables:
       - quizzer
 
 default-extensions:
+  - StrictData
   - DeriveDataTypeable
   - DeriveGeneric
   - DuplicateRecordFields
@@ -82,4 +83,3 @@ default-extensions:
   - TemplateHaskell
   - TupleSections
   - NoImplicitPrelude
-

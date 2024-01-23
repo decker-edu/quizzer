@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 module Quizzer (main) where
 
 import Atomically
@@ -13,6 +16,7 @@ import Network.WebSockets
 import Network.WebSockets.Snap
 import Relude
 import Relude.Extra.Map
+import Safe (atMay)
 import Snap.Core
 import Snap.Http.Server
 import Snap.Util.FileServe
@@ -21,11 +25,10 @@ import System.Directory
 import System.FilePath ((</>))
 import System.Random
 import qualified Text.Show as Text
-import Safe (atMay)
 
 data Opts = Opts
-  { _debug :: Bool,
-    _urlBase :: String
+  { _debug :: !Bool,
+    _urlBase :: !String
   }
 
 makeLenses ''Opts
@@ -36,26 +39,26 @@ $(deriveJSON defaultOptions ''WinnerSelection)
 
 -- | Commands that the presenter sends to the server.
 data MasterCommand
-  = Start {
-      _choices :: [Text], 
-      _solution :: Maybe [Text], 
-      _winnerselection :: Maybe WinnerSelection,
-      _votes :: Int
-    }
+  = Start
+      { _choices :: ![Text],
+        _solution :: !(Maybe [Text]),
+        _winnerselection :: !(Maybe WinnerSelection),
+        _votes :: !Int
+      }
   | Stop
   | Reset
   | Beat
-  | ClientCss {_clientCss :: Text}
+  | ClientCss {_clientCss :: !Text}
   deriving (Generic, Show)
 
 $(deriveJSON defaultOptions {fieldLabelModifier = drop 1, omitNothingFields = True} ''MasterCommand)
 
 -- | Commands that the server sends to the voter.
 data ClientCommand
-  = Begin {_choices :: [Text], _votes :: Int}
-  | End {_winner :: Bool}
+  = Begin {_choices :: ![Text], _votes :: !Int}
+  | End {_winner :: !Bool}
   | Idle
-  | Css {_css :: Text}
+  | Css {_css :: !Text}
   deriving (Generic, Show)
 
 $(deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''ClientCommand)
@@ -75,14 +78,14 @@ type QuizId = Text
 data QuizState
   = Ready
   | Active
-      { _choices :: Map Text [QuizId],
-        _solution :: [Text],
-        _selection :: WinnerSelection,
+      { _choices :: !(Map Text [QuizId]),
+        _solution :: ![Text],
+        _selection :: !WinnerSelection,
         -- Clients that have given the right answer, reverese ordered by time
-        _winners :: [ClientId],
-        _votesPerVoter :: Int,
-        _partialVotes :: Int,
-        _completeVotes :: Int
+        _winners :: ![ClientId],
+        _votesPerVoter :: !Int,
+        _partialVotes :: !Int,
+        _completeVotes :: !Int
       }
   | Finished
       { _choices :: Map Text [QuizId],
@@ -95,10 +98,10 @@ data QuizState
 data QuizStateMsg
   = MsgReady
   | MsgActive
-      { _choices :: Map Text Int,
-        _votesPerVoter :: Int,
-        _partialVotes :: Int,
-        _completeVotes :: Int
+      { _choices :: !(Map Text Int),
+        _votesPerVoter :: !Int,
+        _partialVotes :: !Int,
+        _completeVotes :: !Int
       }
   | MsgFinished
       { _choices :: Map Text Int,
@@ -119,8 +122,8 @@ instance ToJSON QuizStateMsg where
 
 -- | Is sent to the presenter on any change.
 data SessionMsg = SessionMsg
-  { participants :: Int,
-    quiz :: QuizStateMsg
+  { participants :: !Int,
+    quiz :: !QuizStateMsg
   }
   deriving (Generic, Show)
 
@@ -131,9 +134,9 @@ data Status' = Ready' | Active' | Done' deriving (Generic, Show)
 instance ToJSON Status'
 
 data SessionMsg' = SessionMsg'
-  { _state :: Status',
-    _votes :: [Text],
-    _participants :: Int
+  { _state :: !Status',
+    _votes :: ![Text],
+    _participants :: !Int
   }
   deriving (Generic, Show)
 
@@ -159,10 +162,11 @@ type ClientMap = Map Text Connection
 
 -- | A quiz session.
 data Session = Session
-  { _master :: Connection,
-    _quizState :: QuizState,
-    _clients :: ClientMap,
-    _clientCss :: Text
+  { _master :: !(Maybe Connection),
+    _presenterSecret :: !Text,
+    _quizState :: !QuizState,
+    _clients :: !ClientMap,
+    _clientCss :: !Text
   }
   deriving (Show)
 
@@ -210,38 +214,6 @@ quizzerOpts argv =
       Right $ foldl' (\opts func -> func opts) defaultOpts optFuncs
     (_, _, errs) -> Left $ toText $ concat errs
 
-main :: IO ()
-main = do
-  opts <- quizzerOpts <$> getArgs
-  case opts of
-    Right opts -> do
-      let logBaseDir =
-            if view debug opts
-              then "./log"
-              else "/var/log/quizzer"
-      createDirectoryIfMissing True logBaseDir
-      let config =
-            setPort 3003 $
-              setAccessLog (ConfigFileLog (logBaseDir </> "access.log")) $
-                setErrorLog (ConfigFileLog (logBaseDir </> "error.log")) mempty ::
-              Config Snap ()
-      central <- newTVarIO $ CentralData (fromList [])
-      simpleHttpServe config (routes central)
-    Left err -> do
-      putTextLn $ "Usage: quizzer [OPTION...]" <> err
-      exitFailure
-
-routes :: Central -> Snap ()
-routes central =
-  route
-    [ ("/quiz/:quiz-key", method GET $ handleQuiz central),
-      ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central),
-      -- ("/", ifTop $ serveFileAs "text/html" "README.html"),
-      ("/presenter.html", serveFileAs "text/html" "static/presenter.html"),
-      ("/client", serveFileAs "text/html" "static/client.html"),
-      ("/", serveFileAs "text/html" "static/client.html")
-    ]
-
 mkQuizKey :: IO QuizKey
 mkQuizKey = mkRandomId 4
 
@@ -251,36 +223,72 @@ mkRandomId n = toText . take n . show . md5 . toLazy . show <$> (randomIO :: IO 
 mkClientId = mkRandomId 8
 
 data QKey = QKey
-  { key :: Text
+  { qKey :: !Text
   }
   deriving (Generic, Show)
 
-instance ToJSON QKey
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''QKey)
+
+data MasterToken = MasterToken
+  { mtKey :: !Text,
+    mtSecret :: !Text
+  }
+  deriving (Generic, Show)
+
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 2} ''MasterToken)
+
+mkMasterToken = do
+  secret <- mkClientId
+  key <- mkQuizKey
+  return (MasterToken key secret)
 
 -- | Handles the master for a new quiz session.
 handleMaster :: Central -> PendingConnection -> IO ()
 handleMaster central pending = do
-  key <- mkQuizKey
   connection <- acceptRequest pending
   putTextLn "Master connection accepted."
-  modifyCentral' central (createSession key connection)
-  putStrLn $ "Session created: " ++ toString key
-  sendTextData connection (encodePretty (QKey key))
-  sendStatus central key
+  token <- mkMasterToken
+  let sessionKey = mtKey token
+  modifyCentral' central (createSession sessionKey (mtSecret token) connection)
+  putStrLn $ "Session created: " ++ toString sessionKey
+  sendTextData connection (encodePretty token)
+  sendStatus central sessionKey
   flip
     finally
     ( do
-        closeClientConnections central key
-        putStrLn ("Session destroyed: " ++ toString key)
+        -- closeClientConnections central sessionKey
+        modifyCentral' central (setMasterConnection sessionKey Nothing)
+        putStrLn ("Session not destroyed: " ++ toString sessionKey)
     )
-    $ forever (masterLoop connection central key)
+    $ forever (masterLoop connection central sessionKey)
 
+-- | Handles the master for a new quiz session.
+handleMasterReconnect :: Central -> MasterToken -> PendingConnection -> IO ()
+handleMasterReconnect central token@(MasterToken sessionKey secret) pending = do
+  sessionSecret <- accessCentral' central (preview (sessions . ix sessionKey . presenterSecret))
+  case sessionSecret of
+    Just sessionSecret | secret == sessionSecret -> do
+      connection <- acceptRequest pending
+      modifyCentral' central (setMasterConnection sessionKey (Just connection))
+      putTextLn $ "Master session reconnect accepted: " <> sessionKey
+      sendTextData connection (encodePretty token)
+      sendStatus central sessionKey
+      flip
+        finally
+        ( do
+            -- closeClientConnections central sessionKey
+            modifyCentral' central (setMasterConnection sessionKey Nothing)
+            putStrLn ("Session not destroyed: " ++ toString sessionKey)
+        )
+        $ forever (masterLoop connection central sessionKey)
+    _else -> do
+      putStrLn $ "Session does not exist: " ++ toString sessionKey
 
 selectWinner :: Int -> WinnerSelection -> [ClientId] -> Maybe ClientId
 selectWinner _ _ [] = Nothing
 selectWinner _ FirstVoter winners = listToMaybe (reverse winners)
 selectWinner rnd Random winners = do
-  let i = (abs rnd) `mod` (length winners)
+  let i = abs rnd `mod` length winners
   atMay winners i
 
 masterLoop :: Connection -> Central -> QuizKey -> IO ()
@@ -290,6 +298,7 @@ masterLoop connection central key = do
   case cmd of
     Left err -> sendTextData connection (encode (ErrorMsg $ toText err))
     Right cmd -> do
+      putStrLn $ "Received: " <> show cmd
       rnd :: Int <- randomIO
       runAtomically central $ do
         case cmd of
@@ -304,7 +313,7 @@ masterLoop connection central key = do
                 let winner = selectWinner rnd selection winners
                 commit $ putStrLn $ "winner selection: " <> show selection
                 sendEndClients key winner
-              _ -> return ()
+              _anything -> return ()
           Reset -> do
             assign (sessions . ix key . quizState) Ready
             sendAllClients key Idle
@@ -318,13 +327,14 @@ initSession :: QuizKey -> [Text] -> [Text] -> WinnerSelection -> Int -> AC ()
 initSession key choices solution selection possible = do
   assign
     (sessions . ix key . quizState)
-    (Active (fromList $ zip choices (repeat [])) (sort solution) selection [] possible 0 0)
+    (Active (fromList $ map (,[]) choices) (sort solution) selection [] possible 0 0)
 
 closeClientConnections :: Central -> QuizKey -> IO ()
 closeClientConnections central key =
   runAtomically central $ do
     clients <- use (sessions . ix key . clients)
-    assign (sessions . at key) Nothing
+    -- keep sessions alive indefinitley for possible reconnects
+    -- assign (sessions . at key) Nothing
     commit $ mapM_ (`sendClose` ("Bye." :: Text)) clients
 
 sendMasterStatus :: QuizKey -> AC ()
@@ -332,9 +342,12 @@ sendMasterStatus key = do
   session <- fromJust <$> preuse (sessions . ix key)
   let n = length (session ^. clients)
   let msg = SessionMsg n (countVotes (session ^. quizState))
-  commit $ sendTextData (session ^. master) (encodePretty msg)
+  case session ^. master of
+    Just conn ->
+      commit $ sendTextData conn (encodePretty msg)
+    Nothing -> return ()
 
-countVotes (Ready) = MsgReady
+countVotes Ready = MsgReady
 countVotes (Active choices _ _ _ possible partial complete) = MsgActive (Map.map length choices) possible partial complete
 countVotes (Finished choices possible partial complete) = MsgFinished (Map.map length choices) possible partial complete
 
@@ -346,19 +359,26 @@ sendAllClients key cmd = do
 sendEndClients :: QuizKey -> Maybe ClientId -> AC ()
 sendEndClients key winner = do
   clients <- use (sessions . ix key . clients)
-  commit $ mapM_ (\(cid, connection) -> 
-                   sendClientCommand (End (Just cid == winner)) connection) 
-                 (Map.toList clients)
+  commit
+    $ mapM_
+      ( \(cid, connection) ->
+          sendClientCommand (End (Just cid == winner)) connection
+      )
+      (Map.toList clients)
 
 sendClientCommand :: ClientCommand -> Connection -> IO ()
 sendClientCommand cmd conn = sendTextData conn (encodePretty cmd)
 
+-- send current session status to master
 sendStatus :: Central -> QuizKey -> IO ()
 sendStatus central key = do
+  putStrLn $ "sending status to master: " <> show key
   session <- fromJust <$> accessCentral' central (view (sessions . at key))
   let n = length (session ^. clients)
   let msg = SessionMsg n (countVotes (session ^. quizState))
-  sendTextData (session ^. master) (encodePretty msg)
+  case session ^. master of
+    Just conn -> sendTextData conn (encodePretty msg)
+    Nothing -> return ()
 
 -- | Handles a new client for an existing quiz session.
 handleQuiz :: Central -> Snap ()
@@ -422,19 +442,22 @@ modifyCentral' :: Central -> (CentralData -> CentralData) -> IO ()
 modifyCentral' central func = atomically $ modifyTVar' central func
 
 stateCentral :: Central -> (CentralData -> CentralData) -> IO CentralData
-stateCentral central func = atomically $ (modifyTVar' central func >> readTVar central)
+stateCentral central func = atomically (modifyTVar' central func >> readTVar central)
 
 -- | Returns True if the session is active.
 isSessionActive :: QuizKey -> CentralData -> Bool
-isSessionActive key central = 
+isSessionActive key central =
   case preview (sessions . ix key . quizState) central of
     Just (Active {}) -> True
-    _ -> False
+    _otherwise -> False
 
 -- | Add the client if the specified session exists.
 addClient :: QuizKey -> Client -> CentralData -> CentralData
 addClient key (cid, conn) =
   set (sessions . at key . _Just . clients . at cid) (Just conn)
+
+setMasterConnection :: QuizKey -> Maybe Connection -> CentralData -> CentralData
+setMasterConnection key connection = set (sessions . at key . _Just . master) connection
 
 -- | Remove the client if the specified session exists.
 -- TODO Remove the votes this client placed
@@ -447,15 +470,13 @@ doesSessionExist :: QuizKey -> CentralData -> Bool
 doesSessionExist key = has (sessions . ix key)
 
 -- | Creates a new session with the specified key and master connection
-createSession :: QuizKey -> Connection -> CentralData -> CentralData
-createSession key conn central =
-  let session = Session conn (Ready) (fromList []) ""
+createSession :: QuizKey -> Text -> Connection -> CentralData -> CentralData
+createSession key secret conn central =
+  let session = Session (Just conn) secret Ready (fromList []) ""
    in set (sessions . at key) (Just session) central
 
 -- | Removes a session.
 -- removeSession :: QuizKey -> CentralData -> CentralData
--- removeSession key = set (sessions . at key) Nothing
-registerAnswer :: QuizKey -> ClientId -> [Text] -> CentralData -> CentralData
 registerAnswer key cid answers central =
   case preview (sessions . ix key . quizState) central of
     Just (Active choices solution selection winners possible partial complete) ->
@@ -465,7 +486,7 @@ registerAnswer key cid answers central =
           partial' = if not (null answers) then partial + 1 else partial
           winners' = if sort answers == solution then cid : winners else winners
        in set (sessions . at key . _Just . quizState) (Active updated solution selection winners' possible partial' complete') central
-    _ -> central
+    _noSuchSession -> central
 
 unregisterAnswer :: QuizKey -> ClientId -> CentralData -> CentralData
 unregisterAnswer key cid central =
@@ -477,7 +498,46 @@ unregisterAnswer key cid central =
           partial' = if votes /= 0 then partial - 1 else partial
           winners' = filter (/= cid) winners
        in set (sessions . at key . _Just . quizState) (Active cleared solution selection winners' possible partial' complete') central
-    _ -> central
+    _otherwise -> central
+
+routes :: Central -> Snap ()
+routes central =
+  route
+    [ ( "/quiz/:quiz-key/:presenter-secret",
+        method GET $ do
+          key <- decodeUtf8 . fromJust <$> getParam "quiz-key"
+          secret <- decodeUtf8 . fromJust <$> getParam "presenter-secret"
+          let token = MasterToken key secret
+          runWebSocketsSnap $ handleMasterReconnect central token
+      ),
+      ("/quiz/:quiz-key", method GET $ handleQuiz central),
+      ("/quiz", method GET $ runWebSocketsSnap $ handleMaster central),
+      -- ("/", ifTop $ serveFileAs "text/html" "README.html"),
+      ("/presenter.html", serveFileAs "text/html" "static/presenter.html"),
+      ("/client", serveFileAs "text/html" "static/client.html"),
+      ("/", serveFileAs "text/html" "static/client.html")
+    ]
+
+main :: IO ()
+main = do
+  opts <- quizzerOpts <$> getArgs
+  case opts of
+    Right opts -> do
+      let logBaseDir =
+            if view debug opts
+              then "./log"
+              else "/var/log/quizzer"
+      createDirectoryIfMissing True logBaseDir
+      let config =
+            setPort 3003
+              $ setAccessLog (ConfigFileLog (logBaseDir </> "access.log"))
+              $ setErrorLog (ConfigFileLog (logBaseDir </> "error.log")) mempty ::
+              Config Snap ()
+      central <- newTVarIO $ CentralData (fromList [])
+      simpleHttpServe config (routes central)
+    Left err -> do
+      putTextLn $ "Usage: quizzer [OPTION...]" <> err
+      exitFailure
 
 {--
 accessCentralIO :: Central -> (CentralData -> IO a) -> Snap a

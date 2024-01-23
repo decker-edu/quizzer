@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "quizzer:lib"
+
+    - path: "./app/Quizzer.hs"
+      component: "quizzer:exe:quizzer"
+
+    - path: "./app/Json.hs"
+      component: "quizzer:exe:quizzer"
+
+    - path: "./app/Paths_quizzer.hs"
+      component: "quizzer:exe:quizzer"
