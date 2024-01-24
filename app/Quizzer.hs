@@ -1,6 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
 module Quizzer (main) where
 
 import Atomically
@@ -9,6 +6,7 @@ import Control.Lens hiding ((.=))
 import Data.Aeson
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Aeson.TH
+import Data.Char
 import Data.Digest.Pure.MD5
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -227,7 +225,7 @@ data QKey = QKey
   }
   deriving (Generic, Show)
 
-$(deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''QKey)
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 1, constructorTagModifier = map toLower} ''QKey)
 
 data MasterToken = MasterToken
   { mtKey :: !Text,
@@ -235,7 +233,7 @@ data MasterToken = MasterToken
   }
   deriving (Generic, Show)
 
-$(deriveJSON defaultOptions {fieldLabelModifier = drop 2} ''MasterToken)
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''MasterToken)
 
 mkMasterToken = do
   secret <- mkClientId
@@ -329,13 +327,13 @@ initSession key choices solution selection possible = do
     (sessions . ix key . quizState)
     (Active (fromList $ map (,[]) choices) (sort solution) selection [] possible 0 0)
 
-closeClientConnections :: Central -> QuizKey -> IO ()
-closeClientConnections central key =
-  runAtomically central $ do
-    clients <- use (sessions . ix key . clients)
-    -- keep sessions alive indefinitley for possible reconnects
-    -- assign (sessions . at key) Nothing
-    commit $ mapM_ (`sendClose` ("Bye." :: Text)) clients
+-- closeClientConnections :: Central -> QuizKey -> IO ()
+-- closeClientConnections central key =
+--   runAtomically central $ do
+--     clients <- use (sessions . ix key . clients)
+--     -- keep sessions alive indefinitley for possible reconnects
+--     -- assign (sessions . at key) Nothing
+--     commit $ mapM_ (`sendClose` ("Bye." :: Text)) clients
 
 sendMasterStatus :: QuizKey -> AC ()
 sendMasterStatus key = do
