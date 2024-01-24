@@ -225,7 +225,7 @@ data QKey = QKey
   }
   deriving (Generic, Show)
 
-$(deriveJSON defaultOptions {fieldLabelModifier = drop 1, constructorTagModifier = map toLower} ''QKey)
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 1 . map toLower} ''QKey)
 
 data MasterToken = MasterToken
   { mtKey :: !Text,
@@ -233,7 +233,7 @@ data MasterToken = MasterToken
   }
   deriving (Generic, Show)
 
-$(deriveJSON defaultOptions {fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''MasterToken)
+$(deriveJSON defaultOptions {fieldLabelModifier = drop 2 . map toLower} ''MasterToken)
 
 mkMasterToken = do
   secret <- mkClientId
